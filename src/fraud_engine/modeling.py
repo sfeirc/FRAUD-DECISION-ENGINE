@@ -86,14 +86,17 @@ class RiskModel:
         )
         booster = self.supervised.get_booster()
         contributions = booster.predict(xgb.DMatrix(matrix), pred_contribs=True)[0]
-        ranked = sorted(
+        ranked_pairs = sorted(
             (
-                {"feature": name, "contribution": round(float(value), 5)}
+                (name, round(float(value), 5))
                 for name, value in zip(FEATURE_NAMES, contributions[:-1], strict=True)
             ),
-            key=lambda item: abs(float(item["contribution"])),
+            key=lambda item: abs(item[1]),
             reverse=True,
         )[:5]
+        ranked: list[dict[str, float | str]] = [
+            {"feature": name, "contribution": contribution} for name, contribution in ranked_pairs
+        ]
         return ScoredPayment(
             supervised_score=supervised_score,
             anomaly_score=anomaly_score,

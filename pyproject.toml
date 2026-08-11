@@ -52,4 +52,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 python_version = "3.11"
 strict = true
 packages = ["fraud_engine"]
-
+disable_error_code = ["import-untyped"]

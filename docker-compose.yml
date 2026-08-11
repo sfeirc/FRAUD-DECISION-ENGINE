@@ -1,0 +1,7 @@
+services:
+  fraud-engine:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONHASHSEED: "0"
