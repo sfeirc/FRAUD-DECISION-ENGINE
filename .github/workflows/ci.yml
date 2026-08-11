@@ -43,9 +43,14 @@ jobs:
             --cov-fail-under=80 2>&1 | tee pytest-output.txt
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            while IFS= read -r line; do
-              echo "::error title=pytest::$line"
-            done < pytest-output.txt
+            python - <<'PY'
+          from pathlib import Path
+
+          lines = Path("pytest-output.txt").read_text(encoding="utf-8").splitlines()[-80:]
+          output = "\n".join(lines)
+          escaped = output.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print(f"::error title=pytest::{escaped}")
+          PY
           fi
           exit "$status"
       - name: Build
