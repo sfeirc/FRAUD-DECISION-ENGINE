@@ -28,3 +28,13 @@ def test_cost_breakdown_reconciles_total() -> None:
     assert cost.total == sum(
         [cost.fraud_loss, cost.false_positive_cost, cost.manual_review_cost, cost.operational_cost]
     )
+
+
+def test_threshold_optimization_respects_review_capacity() -> None:
+    scores = [index / 100 for index in range(1, 100)]
+    labels = [int(index % 10 == 0) for index in range(1, 100)]
+    amounts = [100.0] * len(scores)
+    engine = DecisionEngine(CostAssumptions(max_review_rate=0.03))
+    engine.optimize(scores, labels, amounts)
+    review_rate = sum(engine.decide(score) is Decision.REVIEW for score in scores) / len(scores)
+    assert review_rate <= 0.03

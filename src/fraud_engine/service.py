@@ -84,7 +84,7 @@ class FraudDecisionService:
         train_labels = [record.label for record in train]
         champion = RiskModel(
             ModelConfig(
-                version="champion-2.0",
+                version="champion-3.0",
                 n_estimators=120,
                 max_depth=4,
                 learning_rate=0.05,
@@ -96,7 +96,7 @@ class FraudDecisionService:
         ).fit(train_rows, train_labels)
         challenger = RiskModel(
             ModelConfig(
-                version="challenger-2.1",
+                version="challenger-3.1",
                 n_estimators=120,
                 max_depth=4,
                 learning_rate=0.05,
@@ -108,12 +108,19 @@ class FraudDecisionService:
         ).fit(train_rows, train_labels)
         challenger.share_anomaly_model_from(champion)
         engine = DecisionEngine()
-        scores = champion.predict_risk_many(
-            [row.features for row in validation], [row.graph_score for row in validation]
+        validation_rows = [row.features for row in validation]
+        validation_graph_scores = [row.graph_score for row in validation]
+        labels = [row.label for row in validation]
+        champion.fit_calibrator(
+            champion.predict_risk_many(validation_rows, validation_graph_scores), labels
         )
+        challenger.fit_calibrator(
+            challenger.predict_risk_many(validation_rows, validation_graph_scores), labels
+        )
+        scores = champion.predict_risk_many(validation_rows, validation_graph_scores)
         engine.optimize(
             scores,
-            [row.label for row in validation],
+            labels,
             [row.event.amount for row in validation],
         )
         return cls(champion, challenger, engine, validation)

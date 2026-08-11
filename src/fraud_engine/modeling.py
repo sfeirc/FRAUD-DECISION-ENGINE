@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 import xgboost as xgb
 from sklearn.ensemble import IsolationForest
+from sklearn.linear_model import LogisticRegression
 
 from fraud_engine.features import ONLINE_FEATURE_NAMES
 from fraud_engine.graph import GRAPH_FEATURE_NAMES
@@ -45,6 +46,7 @@ class RiskModel:
         self.config = config
         self.supervised: xgb.XGBClassifier | None = None
         self.anomaly: IsolationForest | None = None
+        self.calibrator: LogisticRegression | None = None
 
     def fit(self, rows: list[dict[str, float]], labels: list[int]) -> RiskModel:
         matrix = self._matrix(rows)
@@ -90,11 +92,12 @@ class RiskModel:
             anomaly_score = float(1 / (1 + np.exp(-8 * raw_anomaly)))
         else:
             anomaly_score = anomaly_score_override
-        risk = (
+        raw_risk = (
             self.config.supervised_weight * supervised_score
             + self.config.anomaly_weight * anomaly_score
             + self.config.graph_weight * graph_score
         )
+        risk = self._calibrate(np.asarray([raw_risk]))[0]
         ranked: list[dict[str, float | str]] = []
         if explain:
             booster = self.supervised.get_booster()
@@ -132,12 +135,28 @@ class RiskModel:
         supervised_scores = self.supervised.predict_proba(matrix)[:, 1]
         raw_anomaly = -self.anomaly.decision_function(matrix)
         anomaly_scores = 1 / (1 + np.exp(-8 * raw_anomaly))
-        risks = (
+        raw_risks = (
             self.config.supervised_weight * supervised_scores
             + self.config.anomaly_weight * anomaly_scores
             + self.config.graph_weight * np.asarray(graph_scores)
         )
+        risks = self._calibrate(raw_risks)
         return [float(value) for value in np.clip(risks, 0, 1)]
+
+    def fit_calibrator(self, scores: list[float], labels: list[int]) -> None:
+        """Fit deterministic Platt scaling on a chronological validation partition."""
+        if len(scores) != len(labels) or not scores:
+            raise ValueError("scores and labels must be non-empty and equal length")
+        if len(set(labels)) != 2:
+            raise ValueError("calibration requires both classes")
+        self.calibrator = LogisticRegression(random_state=self.config.random_state).fit(
+            np.asarray(scores).reshape(-1, 1), np.asarray(labels)
+        )
+
+    def _calibrate(self, scores: np.ndarray) -> np.ndarray:
+        if self.calibrator is None:
+            return scores
+        return np.asarray(self.calibrator.predict_proba(scores.reshape(-1, 1))[:, 1])
 
     def share_anomaly_model_from(self, other: RiskModel) -> None:
         if other.anomaly is None:

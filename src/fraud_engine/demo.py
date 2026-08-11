@@ -73,6 +73,7 @@ def run_scenario(
             manual_review_cost=4.0,
             operational_cost=0.05,
             review_fraud_capture_rate=0.80,
+            max_review_rate=0.05,
         )
     )
     return {
@@ -95,10 +96,10 @@ def run_scenario(
 
 
 def main() -> None:
-    from fraud_engine.service import FraudDecisionService
+    from fraud_engine.artifacts import load_artifact
 
-    print("Training deterministic champion and shadow challenger...")
-    service = FraudDecisionService.train_default()
+    print("Loading checksum-verified champion and shadow challenger artifact...")
+    service = load_artifact()
     result = run_scenario(service)
     output_dir = Path("artifacts/demo")
     output_dir.mkdir(parents=True, exist_ok=True)

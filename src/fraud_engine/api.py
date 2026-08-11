@@ -26,6 +26,7 @@ class CostUpdate(BaseModel):
     manual_review_cost: float = Field(default=4.0, ge=0)
     operational_cost: float = Field(default=0.05, ge=0)
     review_fraud_capture_rate: float = Field(default=0.80, ge=0, le=1)
+    max_review_rate: float = Field(default=0.05, ge=0, le=1)
 
 
 def create_app(service: FraudDecisionService | None = None) -> FastAPI:

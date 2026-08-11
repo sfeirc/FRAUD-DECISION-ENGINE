@@ -129,7 +129,7 @@ def run_benchmark(
     feature_seconds = time.perf_counter() - feature_started
     train, validation, test = chronological_split(records)
     champion_config = ModelConfig(
-        version="champion-2.0",
+        version="champion-3.0",
         n_estimators=120,
         max_depth=4,
         learning_rate=0.05,
@@ -139,7 +139,7 @@ def run_benchmark(
         anomaly_estimators=48,
     )
     challenger_config = ModelConfig(
-        version="challenger-2.1",
+        version="challenger-3.1",
         n_estimators=120,
         max_depth=4,
         learning_rate=0.05,
@@ -155,13 +155,20 @@ def run_benchmark(
         [row.features for row in train], [row.label for row in train]
     )
     challenger.share_anomaly_model_from(champion)
-    validation_scores = champion.predict_risk_many(
-        [row.features for row in validation], [row.graph_score for row in validation]
+    validation_rows = [row.features for row in validation]
+    validation_graph_scores = [row.graph_score for row in validation]
+    validation_labels = [row.label for row in validation]
+    champion.fit_calibrator(
+        champion.predict_risk_many(validation_rows, validation_graph_scores), validation_labels
     )
+    challenger.fit_calibrator(
+        challenger.predict_risk_many(validation_rows, validation_graph_scores), validation_labels
+    )
+    validation_scores = champion.predict_risk_many(validation_rows, validation_graph_scores)
     engine = DecisionEngine()
     engine.optimize(
         validation_scores,
-        [row.label for row in validation],
+        validation_labels,
         [row.event.amount for row in validation],
     )
     test_rows = [row.features for row in test]

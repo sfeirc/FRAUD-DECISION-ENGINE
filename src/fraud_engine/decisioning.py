@@ -15,6 +15,13 @@ class CostAssumptions:
     manual_review_cost: float = 4.0
     operational_cost: float = 0.05
     review_fraud_capture_rate: float = 0.80
+    max_review_rate: float = 0.05
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.review_fraud_capture_rate <= 1:
+            raise ValueError("review_fraud_capture_rate must be between zero and one")
+        if not 0 <= self.max_review_rate <= 1:
+            raise ValueError("max_review_rate must be between zero and one")
 
 
 @dataclass(frozen=True)
@@ -74,6 +81,11 @@ class DecisionEngine:
         for review in candidates[:-1]:
             for decline in candidates[candidates > review]:
                 thresholds = DecisionThresholds(float(review), float(decline))
+                review_rate = sum(
+                    self._decide_with(score, thresholds) is Decision.REVIEW for score in scores
+                ) / len(scores)
+                if review_rate > self.assumptions.max_review_rate:
+                    continue
                 cost = self.evaluate(scores, labels, amounts, thresholds=thresholds).total
                 if cost < best_cost:
                     best_cost = cost

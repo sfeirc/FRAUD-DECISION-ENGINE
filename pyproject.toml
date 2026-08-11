@@ -36,6 +36,7 @@ fraud-demo = "fraud_engine.demo:main"
 fraud-benchmark = "fraud_engine.benchmark:main"
 fraud-compare = "fraud_engine.compare:main"
 fraud-build-artifact = "fraud_engine.artifacts:main"
+fraud-robustness = "fraud_engine.robustness:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fraud_engine"]

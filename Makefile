@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: install format lint test build audit demo run benchmark artifacts check
+.PHONY: install format lint test build audit demo run benchmark robustness artifacts check
 
 install:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -29,6 +29,9 @@ run:
 
 benchmark:
 	$(PYTHON) -m fraud_engine.benchmark
+
+robustness:
+	$(PYTHON) -m fraud_engine.robustness
 
 artifacts:
 	$(PYTHON) -m fraud_engine.artifacts

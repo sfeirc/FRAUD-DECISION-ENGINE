@@ -36,3 +36,23 @@ def test_model_fit_predict_is_reproducible() -> None:
     assert shared_anomaly_prediction.risk_score == approx(first_prediction.risk_score)
     second.share_anomaly_model_from(first)
     assert second.anomaly is first.anomaly
+
+
+def test_probability_calibration_is_fitted_separately_from_training() -> None:
+    events = PaymentSimulator(
+        ScenarioConfig(normal_events=300, fraud_events_per_pattern=6, seed=37)
+    ).generate()
+    train, validation, test = chronological_split(build_point_in_time_dataset(events))
+    model = RiskModel(ModelConfig(version="calibration-test", n_estimators=12)).fit(
+        [row.features for row in train], [row.label for row in train]
+    )
+    validation_scores = model.predict_risk_many(
+        [row.features for row in validation], [row.graph_score for row in validation]
+    )
+    model.fit_calibrator(validation_scores, [row.label for row in validation])
+    calibrated = model.predict_risk_many(
+        [row.features for row in test], [row.graph_score for row in test]
+    )
+    assert model.calibrator is not None
+    assert calibrated != validation_scores[: len(calibrated)]
+    assert all(0 <= score <= 1 for score in calibrated)
