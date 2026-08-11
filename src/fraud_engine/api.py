@@ -6,7 +6,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from fraud_engine import __version__
@@ -15,6 +15,12 @@ from fraud_engine.decisioning import CostAssumptions
 from fraud_engine.demo import run_scenario
 from fraud_engine.domain import AuthorizationRequest, AuthorizationResponse
 from fraud_engine.service import FraudDecisionService
+from fraud_engine.storage import (
+    AuthorizationStore,
+    IdempotencyConflictError,
+    LateEventError,
+    configured_database_path,
+)
 
 
 class CostUpdate(BaseModel):
@@ -33,7 +39,9 @@ def create_app(service: FraudDecisionService | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if not hasattr(app.state, "fraud_service"):
-            app.state.fraud_service = load_artifact()
+            loaded = load_artifact()
+            loaded.store = AuthorizationStore(configured_database_path())
+            app.state.fraud_service = loaded
         yield
 
     app = FastAPI(
@@ -44,6 +52,16 @@ def create_app(service: FraudDecisionService | None = None) -> FastAPI:
     )
     if service is not None:
         app.state.fraud_service = service
+
+    @app.exception_handler(IdempotencyConflictError)
+    def idempotency_conflict(_: Request, error: IdempotencyConflictError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409, content={"error": "IDEMPOTENCY_CONFLICT", "detail": str(error)}
+        )
+
+    @app.exception_handler(LateEventError)
+    def late_event(_: Request, error: LateEventError) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"error": "LATE_EVENT", "detail": str(error)})
 
     def get_service(request: Request) -> FraudDecisionService:
         return request.app.state.fraud_service  # type: ignore[no-any-return]
@@ -58,8 +76,11 @@ def create_app(service: FraudDecisionService | None = None) -> FastAPI:
 
     @app.get("/v1/audit")
     def audit(request: Request, limit: int = 50) -> list[dict[str, object]]:
-        log = get_service(request).audit_log
-        return list(log)[-min(max(limit, 1), 500) :][::-1]
+        return get_service(request).store.recent(limit)
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics(request: Request) -> PlainTextResponse:
+        return PlainTextResponse(get_service(request).prometheus_metrics())
 
     @app.get("/v1/graph/rings")
     def rings(request: Request) -> dict[str, list[dict[str, object]]]:

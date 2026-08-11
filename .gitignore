@@ -11,3 +11,4 @@ build/
 *.egg-info/
 artifacts/demo/*.json
 artifacts/demo/*.html
+artifacts/runtime/

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from collections import Counter, deque
+from collections import deque
 from dataclasses import asdict
 from datetime import UTC, datetime
 from threading import RLock
@@ -22,6 +22,7 @@ from fraud_engine.graph import FraudGraph
 from fraud_engine.metrics import classification_and_business_metrics
 from fraud_engine.modeling import ModelConfig, RiskModel, ScoredPayment
 from fraud_engine.simulator import PaymentSimulator, ScenarioConfig
+from fraud_engine.storage import AuthorizationStore
 
 
 def reason_codes(features: dict[str, float], graph_score: float) -> list[str]:
@@ -54,12 +55,14 @@ class FraudDecisionService:
         validation_records: list[FeatureRecord],
         *,
         artifact_manifest: dict[str, object] | None = None,
+        store: AuthorizationStore | None = None,
     ) -> None:
         self.champion = champion
         self.challenger = challenger
         self.engine = engine
         self.validation_records = validation_records
         self.artifact_manifest = artifact_manifest
+        self.store = store or AuthorizationStore()
         self.feature_store = OnlineFeatureStore()
         self.graph = FraudGraph()
         self.audit_log: deque[dict[str, object]] = deque(maxlen=2_000)
@@ -128,6 +131,10 @@ class FraudDecisionService:
     def authorize(self, event: AuthorizationRequest) -> AuthorizationResponse:
         started = time.perf_counter_ns()
         with self._lock:
+            cached = self.store.cached_response(event)
+            if cached is not None:
+                return cached
+            self.store.reject_if_late(event)
             temporal = self.feature_store.compute(event)
             graph_snapshot = self.graph.compute(event)
             features = {**temporal, **graph_snapshot.features}
@@ -168,6 +175,7 @@ class FraudDecisionService:
                     **response.model_dump(mode="json"),
                 }
             )
+            self.store.save(event, response)
             return response
 
     def update_costs(self, assumptions: CostAssumptions) -> dict[str, object]:
@@ -211,14 +219,14 @@ class FraudDecisionService:
 
     def health(self) -> dict[str, object]:
         values = np.asarray(self.latencies_ms or [0.0])
-        decision_counts = Counter(str(row["decision"]) for row in self.audit_log)
+        decision_counts = self.store.decision_counts()
         return {
             "status": "ok",
             "champion": self.champion.config.version,
             "challenger": self.challenger.config.version,
-            "decisions": len(self.audit_log),
-            "decision_counts": dict(decision_counts),
-            "review_queue": decision_counts[Decision.REVIEW.value],
+            "decisions": self.store.count(),
+            "decision_counts": decision_counts,
+            "review_queue": decision_counts.get(Decision.REVIEW.value, 0),
             "thresholds": asdict(self.engine.thresholds),
             "artifact": {
                 "source_commit": self.artifact_manifest.get("source_commit"),
@@ -232,6 +240,36 @@ class FraudDecisionService:
                 "p99": float(np.percentile(values, 99)),
             },
         }
+
+    def prometheus_metrics(self) -> str:
+        health = self.health()
+        latency = health["latency_ms"]
+        if not isinstance(latency, dict):
+            raise TypeError("latency health field must be a mapping")
+        counts = self.store.decision_counts()
+        lines = [
+            "# HELP fraud_authorizations_total Persisted authorization decisions.",
+            "# TYPE fraud_authorizations_total counter",
+        ]
+        for decision in Decision:
+            lines.append(
+                f'fraud_authorizations_total{{decision="{decision.value}"}} '
+                f"{counts.get(decision.value, 0)}"
+            )
+        lines.extend(
+            [
+                "# HELP fraud_decision_latency_ms In-process decision latency percentiles.",
+                "# TYPE fraud_decision_latency_ms gauge",
+                *[
+                    f'fraud_decision_latency_ms{{quantile="{quantile}"}} {latency[quantile]}'
+                    for quantile in ("p50", "p95", "p99")
+                ],
+                "# HELP fraud_review_queue Current persisted review decisions.",
+                "# TYPE fraud_review_queue gauge",
+                f"fraud_review_queue {counts.get(Decision.REVIEW.value, 0)}",
+            ]
+        )
+        return "\n".join(lines) + "\n"
 
     @staticmethod
     def _explain(

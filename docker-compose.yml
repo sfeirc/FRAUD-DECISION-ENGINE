@@ -5,3 +5,9 @@ services:
       - "8000:8000"
     environment:
       PYTHONHASHSEED: "0"
+      FRAUD_DATABASE_PATH: "/data/fraud.sqlite3"
+    volumes:
+      - fraud-data:/data
+
+volumes:
+  fraud-data:

@@ -51,6 +51,38 @@ def test_authorization_contract_and_shadow_prediction(client: TestClient) -> Non
     assert health["thresholds"]["review"] < health["thresholds"]["decline"]
 
 
+def test_authorization_is_idempotent_and_payload_reuse_conflicts(client: TestClient) -> None:
+    payload = valid_payload()
+    payload["transaction_id"] = "idempotency-api"
+    payload["trace_id"] = "trace-idempotency-api"
+    first = client.post("/v1/payments/authorize", json=payload)
+    second = client.post("/v1/payments/authorize", json=payload)
+    assert second.json() == first.json()
+    payload["amount"] = 999.0
+    conflict = client.post("/v1/payments/authorize", json=payload)
+    assert conflict.status_code == 409
+    assert conflict.json()["error"] == "IDEMPOTENCY_CONFLICT"
+
+
+def test_late_event_policy_and_prometheus_metrics(client: TestClient) -> None:
+    payload = valid_payload()
+    payload["customer_id"] = "late-policy-customer"
+    payload["transaction_id"] = "watermark-new"
+    payload["trace_id"] = "trace-watermark-new"
+    payload["event_time"] = datetime(2026, 7, 2, tzinfo=UTC).isoformat()
+    assert client.post("/v1/payments/authorize", json=payload).status_code == 200
+    payload["transaction_id"] = "watermark-old"
+    payload["trace_id"] = "trace-watermark-old"
+    payload["event_time"] = datetime(2026, 7, 1, tzinfo=UTC).isoformat()
+    late = client.post("/v1/payments/authorize", json=payload)
+    assert late.status_code == 409
+    assert late.json()["error"] == "LATE_EVENT"
+    metrics = client.get("/metrics")
+    assert metrics.status_code == 200
+    assert "fraud_authorizations_total" in metrics.text
+    assert "fraud_decision_latency_ms" in metrics.text
+
+
 def test_labels_are_rejected_at_api_boundary(client: TestClient) -> None:
     payload = valid_payload()
     payload["is_fraud"] = True
