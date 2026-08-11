@@ -29,7 +29,12 @@ class ArtifactIntegrityError(RuntimeError):
 
 
 def configured_artifact_dir() -> Path:
-    return Path(os.environ.get("FRAUD_MODEL_DIR", DEFAULT_ARTIFACT_DIR))
+    configured = os.environ.get("FRAUD_MODEL_DIR")
+    if configured:
+        return Path(configured)
+    if (DEFAULT_ARTIFACT_DIR / "manifest.json").is_file():
+        return DEFAULT_ARTIFACT_DIR
+    return Path(__file__).parent / "model_artifacts" / "v0.3.0"
 
 
 def _sha256(path: Path) -> str:

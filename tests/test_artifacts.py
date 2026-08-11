@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from fraud_engine.artifacts import ArtifactIntegrityError, build_artifact, load_artifact
+from fraud_engine.artifacts import (
+    ArtifactIntegrityError,
+    build_artifact,
+    configured_artifact_dir,
+    load_artifact,
+)
 
 
 @pytest.fixture(scope="module")
@@ -39,3 +44,8 @@ def test_artifact_tampering_is_rejected(artifact_dir: Path, tmp_path: Path) -> N
 def test_missing_artifact_has_actionable_error(tmp_path: Path) -> None:
     with pytest.raises(ArtifactIntegrityError, match="make artifacts"):
         load_artifact(tmp_path)
+
+
+def test_repository_artifact_is_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FRAUD_MODEL_DIR", raising=False)
+    assert configured_artifact_dir() == Path("artifacts/models/v0.3.0")

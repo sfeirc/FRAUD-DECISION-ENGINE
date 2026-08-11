@@ -16,7 +16,11 @@ if TYPE_CHECKING:
 
 
 def run_scenario(
-    service: FraudDecisionService, *, normal_events: int = 90, ring_events: int = 18
+    service: FraudDecisionService,
+    *,
+    normal_events: int = 90,
+    ring_events: int = 18,
+    run_id: str = "cli",
 ) -> dict[str, object]:
     simulator = PaymentSimulator(
         ScenarioConfig(
@@ -42,6 +46,12 @@ def run_scenario(
         for index, event in enumerate(fraud)
     ]
     for event in ordered_events:
+        event = event.model_copy(
+            update={
+                "transaction_id": f"{run_id}-{event.transaction_id}",
+                "trace_id": f"{run_id}-{event.trace_id}",
+            }
+        )
         request = AuthorizationRequest.model_validate(
             event.model_dump(exclude={"is_fraud", "fraud_pattern"})
         )

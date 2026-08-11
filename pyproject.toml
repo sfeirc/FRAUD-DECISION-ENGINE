@@ -42,6 +42,9 @@ fraud-load-benchmark = "fraud_engine.load_benchmark:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/fraud_engine"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"artifacts/models/v0.3.0" = "fraud_engine/model_artifacts/v0.3.0"
+
 [tool.pytest.ini_options]
 addopts = "-q --strict-markers"
 testpaths = ["tests"]

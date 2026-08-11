@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from uuid import uuid4
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -97,7 +98,12 @@ def create_app(service: FraudDecisionService | None = None) -> FastAPI:
 
     @app.post("/v1/demo/run")
     def demo(request: Request) -> dict[str, object]:
-        return run_scenario(get_service(request), normal_events=90, ring_events=18)
+        return run_scenario(
+            get_service(request),
+            normal_events=90,
+            ring_events=18,
+            run_id=f"demo-{uuid4().hex[:10]}",
+        )
 
     @app.get("/dashboard", include_in_schema=False)
     def dashboard() -> FileResponse:
