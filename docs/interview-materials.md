@@ -20,7 +20,7 @@
 - Implemented leakage-safe offline replay, delayed fraud feedback, native TreeSHAP reason
   factors, and non-decisional champion/challenger shadow scoring behind a FastAPI contract.
 - Created a reproducible economic/latency benchmark with raw measurements and environment
-  capture; on its documented synthetic holdout, measured 0.6650 PR-AUC and 43.92 ms in-process
+  capture; on its documented synthetic holdout, measured 0.7179 PR-AUC and 27.04 ms in-process
   p99 latency (single host, sequential requests, excluding HTTP transport).
 
 ## LinkedIn project description
@@ -66,9 +66,8 @@ dashboard streams those decisions, renders a detected ring, and re-optimizes thr
 cost assumptions change.
 
 For evidence, the checked synthetic benchmark saves 445 raw held-out rows plus hardware,
-OS, dependencies, commit, configuration, and generated SVGs. It measured 0.6650 PR-AUC and
-43.92 ms in-process p99 on one sequential Windows host. I would not call that a production
+OS, dependencies, commit, configuration, and generated SVGs. It measured 0.7179 PR-AUC and
+27.04 ms in-process p99 on one sequential Windows host. I would not call that a production
 SLO: state is local and non-durable, latency excludes transport and concurrency, and labels
 are synthetic. The next engineering step is an idempotent event-log-backed state layer, then
 multi-window promotion gates and concurrent failure testing.
-

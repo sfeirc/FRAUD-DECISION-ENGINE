@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fraud-decision-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "Cost-sensitive real-time payment fraud decision engine with temporal and graph signals"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -34,6 +34,7 @@ dev = [
 fraud-api = "fraud_engine.api:run"
 fraud-demo = "fraud_engine.demo:main"
 fraud-benchmark = "fraud_engine.benchmark:main"
+fraud-compare = "fraud_engine.compare:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fraud_engine"]

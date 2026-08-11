@@ -13,7 +13,7 @@ lint:
 	$(PYTHON) -m mypy -p fraud_engine
 
 test:
-	$(PYTHON) -m pytest --cov=fraud_engine --cov-report=term-missing
+	$(PYTHON) -m pytest --cov=fraud_engine --cov-report=term-missing --cov-fail-under=80
 
 build:
 	$(PYTHON) -m build
@@ -29,5 +29,8 @@ run:
 
 benchmark:
 	$(PYTHON) -m fraud_engine.benchmark
+
+compare:
+	$(PYTHON) -m fraud_engine.compare benchmarks/results/reference/summary.json benchmarks/results/optimized/summary.json
 
 check: lint test build

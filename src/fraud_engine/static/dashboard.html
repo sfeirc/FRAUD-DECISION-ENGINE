@@ -9,7 +9,7 @@
     * { box-sizing: border-box; } body { margin:0; background:radial-gradient(circle at 70% 0,#12304b 0,var(--bg) 42%); color:var(--text); font:14px Inter,system-ui,sans-serif; }
     header { padding:28px 4vw 18px; display:flex; align-items:end; justify-content:space-between; } h1 { margin:0; font-size:28px; letter-spacing:-.8px; } h1 span { color:var(--cyan); } .eyebrow { color:var(--cyan); text-transform:uppercase; letter-spacing:2px; font-size:11px; margin-bottom:7px; }
     button { background:var(--cyan); color:#041412; border:0; border-radius:8px; padding:11px 16px; font-weight:750; cursor:pointer; } button:disabled { opacity:.5; }
-    main { padding:0 4vw 40px; } .cards { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; } .card,.panel { background:rgba(13,27,45,.94); border:1px solid var(--border); border-radius:12px; box-shadow:0 14px 40px #0004; }
+    main { padding:0 4vw 40px; } .cards { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; } .card,.panel { background:rgba(13,27,45,.94); border:1px solid var(--border); border-radius:12px; box-shadow:0 14px 40px #0004; }
     .card { padding:17px; } .label { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px; } .value { font-size:23px; font-weight:760; margin-top:7px; } .grid { display:grid; grid-template-columns:1.35fr .8fr; gap:12px; margin-top:12px; } .panel { padding:18px; min-height:290px; } h2 { margin:0 0 15px; font-size:15px; } table { width:100%; border-collapse:collapse; } th { color:var(--muted); font-size:10px; text-align:left; text-transform:uppercase; } td,th { padding:9px 7px; border-bottom:1px solid #193047; } .pill { border-radius:99px; padding:4px 8px; font-size:10px; font-weight:800; } .approve { background:#34d39922;color:#6ee7b7; } .review { background:#fbbf2422;color:#fcd34d; } .decline { background:#fb718522;color:#fda4af; } .score { font-variant-numeric:tabular-nums; }
     #graph { width:100%; height:245px; } .node { fill:var(--cyan); } .device { fill:var(--amber); } .ip { fill:var(--red); } .merchant { fill:#a78bfa; } .edge { stroke:#52708d;stroke-width:1;opacity:.55; } .costs { display:grid;grid-template-columns:1fr 70px;gap:9px;align-items:center; } input[type=range] { width:100%; accent-color:var(--cyan); } .explanation { padding:10px 0;border-bottom:1px solid #193047; } .muted { color:var(--muted); } #status { color:var(--muted); margin-right:12px; }
     @media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
@@ -23,6 +23,7 @@
       <div class="card"><div class="label">p99 latency</div><div class="value" id="latency">—</div></div>
       <div class="card"><div class="label">Champion</div><div class="value" id="model" style="font-size:17px">—</div></div>
       <div class="card"><div class="label">Fraud prevented*</div><div class="value" id="prevented">—</div></div>
+      <div class="card"><div class="label">Review queue</div><div class="value" id="reviews">0</div></div>
       <div class="card"><div class="label">Ring nodes</div><div class="value" id="ring-count">0</div></div>
     </section>
     <section class="grid">
@@ -39,9 +40,9 @@ async function json(url,options){const r=await fetch(url,options);if(!r.ok)throw
 function money(x){return new Intl.NumberFormat('en',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(x)}
 async function refresh(){
  const [h,a,g]=await Promise.all([json('/v1/health'),json('/v1/audit?limit=12'),json('/v1/graph/rings')]);
- $('decisions').textContent=h.decisions;$('latency').textContent=h.latency_ms.p99.toFixed(2)+' ms';$('model').textContent=h.champion;$('ring-count').textContent=g.nodes.length;
+ $('decisions').textContent=h.decisions;$('reviews').textContent=h.review_queue;$('latency').textContent=h.latency_ms.p99.toFixed(2)+' ms';$('model').textContent=h.champion;$('ring-count').textContent=g.nodes.length;
  $('stream').innerHTML=a.map(x=>`<tr><td>${x.trace_id.slice(-8)}</td><td>${money(x.amount)}</td><td class="score">${x.risk_score.toFixed(3)}</td><td><span class="pill ${x.decision}">${x.decision}</span></td><td>${x.latency_ms.toFixed(2)}ms</td><td>${(x.reason_codes[0]||'MODEL_SCORE').replaceAll('_',' ')}</td></tr>`).join('');
- if(a[0]){$('explain').innerHTML=`<b>${a[0].explanation.summary}</b><p>Rules: ${a[0].reason_codes.join(', ')||'none'}</p><p>Shadow ${a[0].shadow.model_version}: ${a[0].shadow.risk_score.toFixed(3)} → ${a[0].shadow.would_decide}</p>`} draw(g);
+ if(a[0]){$('explain').innerHTML=`<b>${a[0].explanation.summary}</b><p>Rules: ${a[0].reason_codes.join(', ')||'none'}</p><p>Shadow ${a[0].shadow.model_version}: ${a[0].shadow.risk_score.toFixed(3)} → ${a[0].shadow.would_decide}</p><p>Policy: review ≥ ${h.thresholds.review.toFixed(3)}, decline ≥ ${h.thresholds.decline.toFixed(3)}</p>`} draw(g);
 }
 function draw(g){const svg=$('graph'),nodes=g.nodes.slice(0,35),ids=new Map(nodes.map((n,i)=>[n.id,i])),cx=325,cy=122,r=95;let pos=new Map(nodes.map((n,i)=>[n.id,[cx+r*Math.cos(i*6.28/nodes.length),cy+r*Math.sin(i*6.28/nodes.length)]]));svg.innerHTML=g.edges.filter(e=>ids.has(e.source)&&ids.has(e.target)).map(e=>`<line class="edge" x1="${pos.get(e.source)[0]}" y1="${pos.get(e.source)[1]}" x2="${pos.get(e.target)[0]}" y2="${pos.get(e.target)[1]}"/>`).join('')+nodes.map(n=>`<circle class="node ${n.kind}" cx="${pos.get(n.id)[0]}" cy="${pos.get(n.id)[1]}" r="${n.kind==='customer'?5:9}"><title>${n.id}</title></circle>`).join('')}
 $('demo').onclick=async()=>{try{$('demo').disabled=true;$('status').textContent='Injecting traffic…';demoResult=await json('/v1/demo/run',{method:'POST'});$('prevented').textContent=money(demoResult.estimated_fraud_prevented);$('status').textContent=`Ring mean risk ${demoResult.mean_ring_risk}`;await refresh()}catch(e){$('status').textContent=e.message}finally{$('demo').disabled=false}};
@@ -50,4 +51,3 @@ $('cost').onclick=async()=>{const body={false_positive_decline_cost:+$('fp').val
 refresh();setInterval(refresh,3000);
 </script>
 </body></html>
-

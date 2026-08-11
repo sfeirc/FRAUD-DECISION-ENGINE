@@ -11,7 +11,10 @@ Online inference computes only information available immediately before authoriz
 | Geography | haversine distance from historical mean coordinates | Prior coordinates only |
 | Novelty | first device, first merchant | Membership checked before insertion |
 | Authentication | failed authorizations in 1 hour | Prior attempts only |
+| Current context | authentication failure, card-not-present, high-risk category | Present-event facts only |
+| Inter-arrival | seconds since previous customer payment, historical count | Previous timestamp only |
 | Graph | shared device/IP customers, component size, entity degree | Graph before current edges |
+| Entity exposure | merchant customer count, prior device/IP observations | Prior graph events only |
 | Feedback graph | merchant concentration, neighborhood confirmed-fraud rate | Confirmations older than delay |
 
 The feature store rejects event-time regression per customer. Equal timestamps are ordered by
@@ -37,4 +40,3 @@ The simulator generates entity populations before replay, but no population-wide
 statistics are exposed as features. In a real warehouse, late-arriving corrections, mutable
 merchant attributes, and chargeback effective dates would need explicit as-of joins and
 backfill tests.
-

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from collections import deque
+from collections import Counter, deque
 from dataclasses import asdict
 from datetime import UTC, datetime
 from threading import RLock
@@ -13,6 +13,7 @@ from fraud_engine.decisioning import CostAssumptions, DecisionEngine
 from fraud_engine.domain import (
     AuthorizationRequest,
     AuthorizationResponse,
+    Decision,
     DecisionExplanation,
     ShadowResult,
 )
@@ -63,13 +64,15 @@ class FraudDecisionService:
         self._lock = RLock()
 
     @classmethod
-    def train_default(cls, *, seed: int = 7, normal_events: int = 1_200) -> FraudDecisionService:
+    def train_default(
+        cls, *, seed: int = 7, normal_events: int = 2_000, fraud_events_per_pattern: int = 25
+    ) -> FraudDecisionService:
         events = PaymentSimulator(
             ScenarioConfig(
                 seed=seed,
-                customers=180,
+                customers=250,
                 normal_events=normal_events,
-                fraud_events_per_pattern=18,
+                fraud_events_per_pattern=fraud_events_per_pattern,
             )
         ).generate()
         records = build_point_in_time_dataset(events)
@@ -189,11 +192,15 @@ class FraudDecisionService:
 
     def health(self) -> dict[str, object]:
         values = np.asarray(self.latencies_ms or [0.0])
+        decision_counts = Counter(str(row["decision"]) for row in self.audit_log)
         return {
             "status": "ok",
             "champion": self.champion.config.version,
             "challenger": self.challenger.config.version,
             "decisions": len(self.audit_log),
+            "decision_counts": dict(decision_counts),
+            "review_queue": decision_counts[Decision.REVIEW.value],
+            "thresholds": asdict(self.engine.thresholds),
             "latency_ms": {
                 "p50": float(np.percentile(values, 50)),
                 "p95": float(np.percentile(values, 95)),

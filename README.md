@@ -1,5 +1,9 @@
 # Aegis Fraud Decision Engine
 
+[![CI](https://github.com/sfeirc/FRAUD-DECISION-ENGINE/actions/workflows/ci.yml/badge.svg)](https://github.com/sfeirc/FRAUD-DECISION-ENGINE/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
+
 Aegis makes auditable approve/review/decline payment decisions by fusing temporal,
 XGBoost, anomaly, and entity-graph risk under explicit business costs.
 
@@ -14,8 +18,8 @@ make demo
 The deterministic demo sends ordinary payments through the authorization service, injects
 a coordinated ring sharing a device and IP, exports its graph, explains each decision, and
 raises false-positive costs to re-optimize both decision thresholds. In the checked run,
-mean risk moved from `0.15130` for normal traffic to `0.89011` for the ring; review/decline
-thresholds moved from `0.236/0.452` to `0.452/0.716`. These are simulator observations,
+mean risk moved from `0.09581` for normal traffic to `0.77182` for the ring; review/decline
+thresholds moved from `0.284/0.572` to `0.716/0.740`. These are simulator observations,
 not estimates of live fraud performance.
 
 The dashboard shows the authorization stream, champion and shadow scores, explanations,
@@ -46,32 +50,54 @@ enter graph statistics only after a configurable confirmation delay.
 
 ## Measured reference results
 
-Reference: commit `27ac57e`, seed 7, 2,225 simulated payments, chronological split of
+Reference: commit `4b7a660`, seed 7, 2,225 simulated payments, chronological split of
 1,446 train / 334 validation / 445 test rows on Windows 11, Python 3.12.13, an 8-logical-CPU
 Intel64 host. Thresholds were optimized on validation data and evaluated once on test data.
 
 | Held-out metric | Champion | Shadow challenger |
 |---|---:|---:|
-| PR-AUC | 0.6650 | 0.6637 |
-| ROC-AUC | 0.8586 | 0.8523 |
-| Precision | 0.8077 | 0.8696 |
-| Recall | 0.5526 | 0.5263 |
-| Recall at 1% FPR | 0.5263 | 0.5526 |
-| Fraud amount captured | 80.82% | 81.29% |
-| Estimated total cost | 2,461.21 | 2,499.89 |
+| PR-AUC | 0.7179 | 0.7168 |
+| ROC-AUC | 0.8848 | 0.8867 |
+| Precision | 0.5833 | 0.5870 |
+| Recall | 0.7368 | 0.7105 |
+| Recall at 1% FPR | 0.5526 | 0.5526 |
+| Fraud amount captured | 84.05% | 84.05% |
+| Estimated total cost | 2,095.35 | 2,233.93 |
 
-Champion decisions produced 5 false positives and 5 manual reviews. Sequential warm-model
-in-process latency was p50 `36.08 ms`, p95 `41.71 ms`, and p99 `43.92 ms`; it includes
+Champion decisions produced 20 false positives and 19 manual reviews. Sequential warm-model
+in-process latency was p50 `18.43 ms`, p95 `21.81 ms`, and p99 `27.04 ms`; it includes
 features, graph updates, both models, TreeSHAP contributions, and audit serialization, but
 excludes HTTP and network transport. “Fraud captured” and costs use simulated labels and
 configured assumptions; they are not realized financial savings.
 
-![Held-out metrics](benchmarks/results/reference/quality_metrics.svg)
+![Held-out metrics](benchmarks/results/optimized/quality_metrics.svg)
 
-![Decision latency](benchmarks/results/reference/latency.svg)
+![Decision latency](benchmarks/results/optimized/latency.svg)
 
-[Raw rows](benchmarks/results/reference/raw_measurements.csv) ·
-[run metadata and configuration](benchmarks/results/reference/summary.json) ·
+## Measured optimization impact
+
+![Measured optimization impact](benchmarks/results/comparison/comparison.svg)
+
+| Same-seed comparison | Baseline | Optimized | Change |
+|---|---:|---:|---:|
+| Feature replay | 7.981 s | 0.100 s | 79.5× faster |
+| P99 decision latency | 43.92 ms | 27.04 ms | 38.4% lower |
+| PR-AUC | 0.6650 | 0.7179 | +0.0529 |
+| Fraud amount captured | 80.82% | 84.05% | +3.24 pp |
+| Estimated total cost | 2,461.21 | 2,095.35 | 14.9% lower |
+| False positives | 5 | 20 | +15 |
+
+The graph speedup replaces repeated full connected-component traversals with an incremental
+union-find index carrying component size and delayed fraud aggregates. Latency also benefits
+from skipping unused TreeSHAP work for the non-decisional challenger. Quality gains come from
+validation-selected model/fusion settings and additional authorization-time features. The
+false-positive increase is the explicit cost-optimized trade-off for higher recall and fraud
+capture under the stated assumptions.
+
+[Optimized raw rows](benchmarks/results/optimized/raw_measurements.csv) ·
+[optimized run metadata](benchmarks/results/optimized/summary.json) ·
+[baseline run](benchmarks/results/reference/summary.json) ·
+[machine-readable comparison](benchmarks/results/comparison/comparison.json) ·
 [benchmark method](docs/benchmarking.md)
 
 ## Why this is difficult
@@ -113,10 +139,12 @@ challenger's non-decisional result. OpenAPI is at `/docs`.
   currencies, authentication methods, and nine configurable attack families. Benign
   traffic also includes travel, new devices, shared NAT IPs, and amount spikes.
 - `OnlineFeatureStore` owns one-minute/hour/day counts, spend velocity, amount baseline,
-  geography, device/merchant novelty, and failed-auth frequency.
+  geography, device/merchant novelty, authentication context, inter-arrival time, and
+  failed-auth frequency.
 - `FraudGraph` incrementally connects customer ↔ card/device/IP/merchant and derives shared
   entity counts, component size, degree, merchant concentration, and delayed neighborhood
-  fraud statistics.
+  fraud statistics. A disjoint-set index keeps component queries near-constant amortized time;
+  NetworkX remains the investigator-facing visualization graph.
 - `RiskModel` fuses XGBoost, Isolation Forest, and graph risk. Deep learning was excluded:
   this dataset does not demonstrate that its operational cost would buy material value.
 - `DecisionEngine` grid-searches review and decline thresholds against decomposed costs.
@@ -144,6 +172,8 @@ make benchmark
 # custom size/seed/output:
 python -m fraud_engine.benchmark --normal-events 2000 --seed 7 \
   --output-dir benchmarks/results/my-run
+python -m fraud_engine.compare benchmarks/results/reference/summary.json \
+  benchmarks/results/my-run/summary.json
 ```
 
 Each run writes raw CSV rows, JSON environment/configuration metadata, and SVG figures.
@@ -158,6 +188,7 @@ Architecture Decision Records live in [`docs/adr`](docs/adr):
 - [ADR 002: point-in-time event replay](docs/adr/002-point-in-time-features.md)
 - [ADR 003: hybrid models instead of graph deep learning](docs/adr/003-hybrid-risk-model.md)
 - [ADR 004: cost thresholds and shadow challenger](docs/adr/004-cost-decisioning-and-shadow.md)
+- [ADR 005: incremental graph component index](docs/adr/005-incremental-graph-index.md)
 
 ## Known limitations
 
@@ -178,5 +209,6 @@ or financial impact. See the full [limitations](docs/limitations.md).
    graph partitioning before making a scale or SLO claim.
 
 The [technical report](docs/technical-report.md) covers modeling and business reasoning;
+[the performance report](docs/performance-report.md) documents profiling and optimization;
 [interview notes](docs/interview-materials.md) contain talking points, CV bullets, a LinkedIn
 description, and 30-second/2-minute pitches.

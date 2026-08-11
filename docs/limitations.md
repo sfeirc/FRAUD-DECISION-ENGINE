@@ -34,6 +34,6 @@
 - Categorical event fields enter models indirectly through behavioral features rather than
   a full encoding strategy.
 - Confirmed-fraud graph feedback uses a fixed simulated delay.
-- The graph is unbounded in memory and component traversal is unsuitable for large graphs.
+- The graph and component index are unbounded in memory; the disjoint-set index cannot handle
+  edge deletion or component splitting.
 - No graph ML model is included because no measured incremental value has been demonstrated.
-

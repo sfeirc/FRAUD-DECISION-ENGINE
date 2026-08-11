@@ -31,11 +31,10 @@ Use in-memory temporal/graph state and serialize authorization mutation per proc
 
 - Restart loses state and audit history.
 - Multiple replicas would diverge.
-- Graph growth and component traversal are unbounded.
+- Graph growth and the duplicated component index are unbounded and non-durable.
 
 ## Consequences
 
 The repository is a reference system, not production-ready. A distributed version must
 define idempotency keys, partition ownership, late-event policy, checkpoint/replay behavior,
 durable audit, and online/offline consistency tests before scale testing.
-

@@ -73,11 +73,17 @@ and attackers adapt to interventions.
 
 ## Reference findings
 
-The checked reference run achieved champion PR-AUC 0.6650 and recall 0.5526 on 445 held-out
-synthetic events. At validation-optimized thresholds, it captured 80.82% of labeled fraud
-amount with five false positives and five reviews. The shadow challenger captured slightly
-more amount (81.29%) but had higher estimated total cost (2,499.89 versus 2,461.21), so this
-single experiment supplies no case for promotion. Full context is in `summary.json`.
+The optimized reference run achieved champion PR-AUC 0.7179 and recall 0.7368 on 445 held-out
+synthetic events. At validation-optimized thresholds, it captured 84.05% of labeled fraud
+amount with 20 false positives and 19 reviews. The shadow challenger captured the same amount
+but had higher estimated total cost (2,233.93 versus 2,095.35), so this single experiment
+supplies no case for promotion. Full context is in the optimized `summary.json`.
+
+Against the preserved same-seed baseline, component-indexing and shadow explanation changes
+reduced feature replay from 7.981 to 0.100 seconds and p99 in-process authorization latency
+from 43.92 to 27.04 ms. Added authorization-time features and validation-selected fusion
+raised PR-AUC from 0.6650 to 0.7179 and reduced configured estimated cost by 14.9%. False
+positives rose from five to 20, an explicit business trade-off rather than a universal win.
 
 ## What the evidence does not establish
 
@@ -85,4 +91,3 @@ It does not establish production accuracy, calibrated probabilities, concurrent 
 durability, exactly-once processing, fairness, regulatory compliance, or a latency SLO. The
 synthetic generator is useful for controlled failure modes but cannot reproduce an issuer's
 selection effects, feedback loops, fraud-label delay, or adversarial adaptation.
-

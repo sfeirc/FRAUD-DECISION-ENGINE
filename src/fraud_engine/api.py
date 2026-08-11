@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from fraud_engine import __version__
 from fraud_engine.decisioning import CostAssumptions
 from fraud_engine.demo import run_scenario
 from fraud_engine.domain import AuthorizationRequest, AuthorizationResponse
@@ -35,7 +36,7 @@ def create_app(service: FraudDecisionService | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Aegis Fraud Decision Engine",
-        version="0.1.0",
+        version=__version__,
         description="Cost-sensitive payment decisions with temporal, anomaly, and graph risk.",
         lifespan=lifespan,
     )

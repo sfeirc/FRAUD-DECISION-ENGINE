@@ -9,7 +9,9 @@ from fraud_engine.service import FraudDecisionService
 
 @pytest.fixture(scope="module")
 def client() -> TestClient:
-    service = FraudDecisionService.train_default(seed=19, normal_events=300)
+    service = FraudDecisionService.train_default(
+        seed=19, normal_events=300, fraud_events_per_pattern=6
+    )
     with TestClient(create_app(service)) as test_client:
         yield test_client
 
@@ -44,6 +46,9 @@ def test_authorization_contract_and_shadow_prediction(client: TestClient) -> Non
     assert body["shadow"]["model_version"].startswith("challenger")
     assert body["trace_id"] == "trace-api-test-1"
     assert body["latency_ms"] > 0
+    health = client.get("/v1/health").json()
+    assert "review_queue" in health
+    assert health["thresholds"]["review"] < health["thresholds"]["decline"]
 
 
 def test_labels_are_rejected_at_api_boundary(client: TestClient) -> None:

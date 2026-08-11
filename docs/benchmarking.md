@@ -6,6 +6,10 @@
 python -m fraud_engine.benchmark \
   --normal-events 2000 --seed 7 \
   --output-dir benchmarks/results/reference
+
+python -m fraud_engine.compare \
+  benchmarks/results/reference/summary.json \
+  benchmarks/results/optimized/summary.json
 ```
 
 The command saves:
@@ -15,6 +19,9 @@ The command saves:
 - `raw_measurements.csv`: one row per held-out payment with label, attack family, amount,
   both scores, champion decision, and measured online-path latency;
 - `quality_metrics.svg` and `latency.svg`: generated directly from the saved measurements.
+
+The comparison command writes a machine-readable delta report and an SVG that includes
+quality, latency, cost, capture, and the false-positive trade-off.
 
 ## Protocol
 
@@ -52,4 +59,3 @@ forecast or realized saving.
 One seed and one machine do not produce a confidence interval. PR-AUC is primary because the
 positive class is rare; ROC-AUC is reference context. Fixed-FPR recall connects the score to
 a customer-friction budget. Economic results depend directly on stated cost assumptions.
-
