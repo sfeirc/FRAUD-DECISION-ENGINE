@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+artifacts/models/*.json
+artifacts/models/*.ubj
+artifacts/models/*.joblib
+artifacts/demo/*.json
+artifacts/demo/*.html
+

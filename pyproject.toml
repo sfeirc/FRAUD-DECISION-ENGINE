@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fraud-decision-engine"
+version = "0.1.0"
+description = "Cost-sensitive real-time payment fraud decision engine with temporal and graph signals"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "joblib>=1.4,<2",
+  "networkx>=3.3,<4",
+  "numpy>=2.0,<3",
+  "pydantic>=2.9,<3",
+  "scikit-learn>=1.5,<2",
+  "uvicorn>=0.30,<1",
+  "xgboost>=3.0,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27,<1",
+  "mypy>=1.13,<2",
+  "pip-audit>=2.7,<3",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<7",
+  "ruff>=0.8,<1",
+]
+
+[project.scripts]
+fraud-api = "fraud_engine.api:run"
+fraud-demo = "fraud_engine.demo:main"
+fraud-benchmark = "fraud_engine.benchmark:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fraud_engine"]
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["fraud_engine"]
+
