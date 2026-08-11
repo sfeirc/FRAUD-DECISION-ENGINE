@@ -12,8 +12,8 @@ jobs:
   quality-test-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -22,7 +22,9 @@ jobs:
       - name: Formatting
         run: python -m ruff format --check .
       - name: Linting
-        run: python -m ruff check . && python -m mypy src
+        run: python -m ruff check .
+      - name: Type checking
+        run: python -m mypy src
       - name: Tests
         run: python -m pytest --cov=fraud_engine --cov-report=term-missing --cov-fail-under=75
       - name: Build
