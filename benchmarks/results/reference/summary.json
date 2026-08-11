@@ -1,0 +1,135 @@
+{
+  "timestamp_utc": "2026-08-11T09:28:11.822202+00:00",
+  "commit_hash": "27ac57e86d05b2ef77ec58146a2e7f8d10d7c9f8",
+  "hardware": {
+    "processor": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+    "machine": "AMD64",
+    "logical_cpu_count": 8
+  },
+  "operating_system": {
+    "system": "Windows",
+    "release": "11",
+    "version": "10.0.26200"
+  },
+  "software": {
+    "python": "3.12.13",
+    "fraud-decision-engine": "0.1.0",
+    "numpy": "2.3.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.4.0",
+    "networkx": "3.6.1"
+  },
+  "configuration": {
+    "scenario": {
+      "seed": 7,
+      "customers": 250,
+      "cards_per_customer": 1,
+      "merchants": 50,
+      "normal_events": 2000,
+      "fraud_events_per_pattern": 25,
+      "enabled_patterns": [
+        "account_takeover",
+        "card_testing",
+        "compromised_merchant",
+        "coordinated_ring",
+        "high_velocity",
+        "impossible_travel",
+        "new_device",
+        "transaction_burst",
+        "unusual_merchant"
+      ],
+      "start_time": "2026-01-01 00:00:00+00:00"
+    },
+    "scenario_start_time": "2026-01-01T00:00:00+00:00",
+    "split": {
+      "train": 1446,
+      "validation": 334,
+      "test": 445
+    },
+    "champion": {
+      "version": "champion-1.0",
+      "n_estimators": 70,
+      "max_depth": 3,
+      "learning_rate": 0.08,
+      "supervised_weight": 0.72,
+      "anomaly_weight": 0.13,
+      "graph_weight": 0.15,
+      "random_state": 17
+    },
+    "challenger": {
+      "version": "challenger-1.1",
+      "n_estimators": 110,
+      "max_depth": 4,
+      "learning_rate": 0.08,
+      "supervised_weight": 0.78,
+      "anomaly_weight": 0.1,
+      "graph_weight": 0.12,
+      "random_state": 17
+    },
+    "cost_assumptions": {
+      "fraud_loss_rate": 1.0,
+      "false_positive_decline_cost": 35.0,
+      "false_positive_review_cost": 8.0,
+      "manual_review_cost": 4.0,
+      "operational_cost": 0.05,
+      "review_fraud_capture_rate": 0.8
+    },
+    "thresholds": {
+      "review": 0.548,
+      "decline": 0.5960000000000001
+    },
+    "fixed_fpr": 0.01,
+    "latency_scope": "single process, warm model, sequential requests, includes feature/graph/model/explanation/audit; excludes HTTP transport"
+  },
+  "measurements": {
+    "feature_replay_seconds": 7.981324599997606,
+    "champion": {
+      "pr_auc": 0.6650205651412012,
+      "roc_auc": 0.8585930428035691,
+      "precision": 0.8076923076923077,
+      "recall": 0.5526315789473685,
+      "recall_at_fixed_fpr": 0.5263157894736842,
+      "fixed_fpr": 0.01,
+      "fraud_amount": 12677.75,
+      "fraud_captured_amount": 10245.74,
+      "fraud_capture_rate": 0.8081670643450138,
+      "false_positives": 5,
+      "manual_reviews": 5,
+      "estimated_fraud_prevented": 10245.74,
+      "total_estimated_business_cost": 2461.212,
+      "cost_breakdown": {
+        "fraud_loss": 2324.962,
+        "false_positive_cost": 94.0,
+        "manual_review_cost": 20.0,
+        "operational_cost": 22.25000000000018
+      }
+    },
+    "challenger_shadow": {
+      "pr_auc": 0.663707932831061,
+      "roc_auc": 0.8523212207422733,
+      "precision": 0.8695652173913043,
+      "recall": 0.5263157894736842,
+      "recall_at_fixed_fpr": 0.5526315789473685,
+      "fixed_fpr": 0.01,
+      "fraud_amount": 12677.75,
+      "fraud_captured_amount": 10305.11,
+      "fraud_capture_rate": 0.8128500719764943,
+      "false_positives": 3,
+      "manual_reviews": 0,
+      "estimated_fraud_prevented": 10305.11,
+      "total_estimated_business_cost": 2499.89,
+      "cost_breakdown": {
+        "fraud_loss": 2372.64,
+        "false_positive_cost": 105.0,
+        "manual_review_cost": 0.0,
+        "operational_cost": 22.25000000000018
+      }
+    },
+    "latency_ms": {
+      "p50": 36.0808,
+      "p95": 41.71308,
+      "p99": 43.9226
+    },
+    "raw_rows": 445
+  }
+}

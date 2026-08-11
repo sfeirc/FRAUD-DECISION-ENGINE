@@ -67,3 +67,12 @@ def test_decision_latency_guardrail(client: TestClient) -> None:
         response = client.post("/v1/payments/authorize", json=payload)
         latencies.append(response.json()["latency_ms"])
     assert max(latencies) < 250
+
+
+def test_killer_demo_builds_ring_and_changes_cost_thresholds(client: TestClient) -> None:
+    response = client.post("/v1/demo/run")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mean_ring_risk"] > body["mean_normal_risk"]
+    assert len(body["ring"]["nodes"]) >= 5
+    assert body["thresholds_before_cost_change"] != body["thresholds_after_cost_change"]
