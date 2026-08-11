@@ -88,6 +88,7 @@ class FraudDecisionService:
                 supervised_weight=0.85,
                 anomaly_weight=0.10,
                 graph_weight=0.05,
+                anomaly_estimators=48,
             )
         ).fit(train_rows, train_labels)
         challenger = RiskModel(
@@ -99,6 +100,7 @@ class FraudDecisionService:
                 supervised_weight=0.90,
                 anomaly_weight=0.05,
                 graph_weight=0.05,
+                anomaly_estimators=48,
             )
         ).fit(train_rows, train_labels)
         engine = DecisionEngine()
@@ -120,7 +122,10 @@ class FraudDecisionService:
             features = {**temporal, **graph_snapshot.features}
             champion = self.champion.predict(features, graph_snapshot.graph_score)
             challenger = self.challenger.predict(
-                features, graph_snapshot.graph_score, explain=False
+                features,
+                graph_snapshot.graph_score,
+                explain=False,
+                anomaly_score_override=champion.anomaly_score,
             )
             decision = self.engine.decide(champion.risk_score)
             shadow_decision = self.engine.decide(challenger.risk_score)

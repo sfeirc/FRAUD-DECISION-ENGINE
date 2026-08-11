@@ -136,6 +136,7 @@ def run_benchmark(
         supervised_weight=0.85,
         anomaly_weight=0.10,
         graph_weight=0.05,
+        anomaly_estimators=48,
     )
     challenger_config = ModelConfig(
         version="challenger-2.1",
@@ -145,6 +146,7 @@ def run_benchmark(
         supervised_weight=0.90,
         anomaly_weight=0.05,
         graph_weight=0.05,
+        anomaly_estimators=48,
     )
     champion = RiskModel(champion_config).fit(
         [row.features for row in train], [row.label for row in train]

@@ -21,6 +21,7 @@ class ModelConfig:
     supervised_weight: float = 0.72
     anomaly_weight: float = 0.13
     graph_weight: float = 0.15
+    anomaly_estimators: int = 100
     random_state: int = 17
 
 
@@ -65,7 +66,7 @@ class RiskModel:
         self.supervised.fit(matrix, targets)
         legitimate = matrix[targets == 0]
         self.anomaly = IsolationForest(
-            n_estimators=100,
+            n_estimators=self.config.anomaly_estimators,
             contamination="auto",
             random_state=self.config.random_state,
             n_jobs=1,
@@ -73,14 +74,22 @@ class RiskModel:
         return self
 
     def predict(
-        self, features: dict[str, float], graph_score: float, *, explain: bool = True
+        self,
+        features: dict[str, float],
+        graph_score: float,
+        *,
+        explain: bool = True,
+        anomaly_score_override: float | None = None,
     ) -> ScoredPayment:
         if self.supervised is None or self.anomaly is None:
             raise RuntimeError("model is not fitted")
         matrix = self._matrix([features])
         supervised_score = float(self.supervised.predict_proba(matrix)[0, 1])
-        raw_anomaly = -float(self.anomaly.decision_function(matrix)[0])
-        anomaly_score = float(1 / (1 + np.exp(-8 * raw_anomaly)))
+        if anomaly_score_override is None:
+            raw_anomaly = -float(self.anomaly.decision_function(matrix)[0])
+            anomaly_score = float(1 / (1 + np.exp(-8 * raw_anomaly)))
+        else:
+            anomaly_score = anomaly_score_override
         risk = (
             self.config.supervised_weight * supervised_score
             + self.config.anomaly_weight * anomaly_score

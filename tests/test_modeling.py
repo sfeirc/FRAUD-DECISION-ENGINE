@@ -25,3 +25,10 @@ def test_model_fit_predict_is_reproducible() -> None:
         [row.features for row in test], [row.graph_score for row in test]
     )
     assert batch_scores == approx(all_scores)
+    first_prediction = first.predict(test[0].features, test[0].graph_score)
+    shared_anomaly_prediction = second.predict(
+        test[0].features,
+        test[0].graph_score,
+        anomaly_score_override=first_prediction.anomaly_score,
+    )
+    assert shared_anomaly_prediction.risk_score == approx(first_prediction.risk_score)
