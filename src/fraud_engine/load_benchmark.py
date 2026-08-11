@@ -210,8 +210,8 @@ def run_load_benchmark(
     output_dir: Path,
     *,
     concurrency_levels: list[int],
-    requests_per_level: int = 100,
-    warmup_requests: int = 10,
+    requests_per_level: int = 500,
+    warmup_requests: int = 25,
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     all_rows: list[dict[str, object]] = []
@@ -252,8 +252,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark the complete HTTP authorization path")
     parser.add_argument("--output-dir", type=Path, default=Path("benchmarks/results/http-load"))
     parser.add_argument("--concurrency", type=int, nargs="+", default=[1, 4, 8, 16])
-    parser.add_argument("--requests", type=int, default=100)
-    parser.add_argument("--warmup", type=int, default=10)
+    parser.add_argument("--requests", type=int, default=500)
+    parser.add_argument("--warmup", type=int, default=25)
     args = parser.parse_args()
     summary = run_load_benchmark(
         args.output_dir,

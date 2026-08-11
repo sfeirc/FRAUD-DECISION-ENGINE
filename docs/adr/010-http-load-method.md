@@ -19,7 +19,7 @@ contention, and the durable journal. It could not support a throughput statement
 ## Decision
 
 Use option 3. `make load-benchmark` measures concurrency 1, 4, 8, and 16. Each level gets a
-fresh single-worker process and fresh SQLite database, ten excluded warmups, and 100 measured
+fresh single-worker process and fresh SQLite database, 25 excluded warmups, and 500 measured
 requests. Raw request latency and status are saved to CSV; environment, commit, protocol,
 throughput, errors, and percentiles are saved to JSON; the chart is generated from that JSON.
 
@@ -34,7 +34,7 @@ throughput, errors, and percentiles are saved to JSON; the chart is generated fr
 
 - Client and server share one host and communicate over loopback.
 - There is no TLS, reverse proxy, container, remote network, or multiple worker process.
-- One hundred requests per level are insufficient for a production SLO claim.
+- Five hundred requests per level are insufficient for a production SLO claim.
 - The service's global state lock deliberately serializes mutation and limits concurrency.
 
 ## Consequences

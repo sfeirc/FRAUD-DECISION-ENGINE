@@ -1,0 +1,78 @@
+{
+  "timestamp_utc": "2026-08-11T11:50:06.900074+00:00",
+  "commit_hash": "d770d2a42076a6e136625bc7f5783969826b6f7f",
+  "hardware": {
+    "processor": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+    "machine": "AMD64",
+    "logical_cpu_count": 8
+  },
+  "operating_system": {
+    "system": "Windows",
+    "release": "11",
+    "version": "10.0.26200"
+  },
+  "software": {
+    "python": "3.12.13",
+    "fraud-decision-engine": "0.3.0",
+    "numpy": "2.3.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.4.0",
+    "networkx": "3.6.1"
+  },
+  "configuration": {
+    "concurrency_levels": [
+      1,
+      4,
+      8,
+      16
+    ],
+    "requests_per_level": 500,
+    "warmup_requests": 25,
+    "server": "one uvicorn worker; fresh process and SQLite database per level",
+    "client": "async HTTP/1.1 over loopback with connection pooling",
+    "durability": "SQLite WAL with synchronous=FULL",
+    "scope": "includes HTTP parsing/serialization, scheduling, temporal and graph state, champion/challenger inference, explanation, and durable journal write; excludes remote network, TLS, proxy, and container overhead"
+  },
+  "measurements": {
+    "1": {
+      "requests": 500,
+      "successful_requests": 500,
+      "errors": 0,
+      "elapsed_seconds": 7.128125100003672,
+      "throughput_requests_per_second": 70.14467240477337,
+      "client_latency_ms_p50": 13.2854,
+      "client_latency_ms_p95": 19.445319999999995,
+      "client_latency_ms_p99": 23.438320999999988
+    },
+    "4": {
+      "requests": 500,
+      "successful_requests": 500,
+      "errors": 0,
+      "elapsed_seconds": 5.440967200003797,
+      "throughput_requests_per_second": 91.89542623959414,
+      "client_latency_ms_p50": 41.552949999999996,
+      "client_latency_ms_p95": 55.12024999999999,
+      "client_latency_ms_p99": 63.25044599999999
+    },
+    "8": {
+      "requests": 500,
+      "successful_requests": 500,
+      "errors": 0,
+      "elapsed_seconds": 5.503129899996566,
+      "throughput_requests_per_second": 90.85738644844855,
+      "client_latency_ms_p50": 83.75495000000001,
+      "client_latency_ms_p95": 102.01879999999997,
+      "client_latency_ms_p99": 147.97713499999998
+    },
+    "16": {
+      "requests": 500,
+      "successful_requests": 500,
+      "errors": 0,
+      "elapsed_seconds": 6.0530130000115605,
+      "throughput_requests_per_second": 82.60349019555139,
+      "client_latency_ms_p50": 180.9226,
+      "client_latency_ms_p95": 259.00519,
+      "client_latency_ms_p99": 295.33874399999985
+    }
+  }
+}
