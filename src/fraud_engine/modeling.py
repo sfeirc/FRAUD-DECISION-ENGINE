@@ -139,6 +139,11 @@ class RiskModel:
         )
         return [float(value) for value in np.clip(risks, 0, 1)]
 
+    def share_anomaly_model_from(self, other: RiskModel) -> None:
+        if other.anomaly is None:
+            raise RuntimeError("source anomaly model is not fitted")
+        self.anomaly = other.anomaly
+
     @staticmethod
     def _matrix(rows: list[dict[str, float]]) -> np.ndarray:
         return np.asarray(

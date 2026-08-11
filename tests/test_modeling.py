@@ -32,3 +32,5 @@ def test_model_fit_predict_is_reproducible() -> None:
         anomaly_score_override=first_prediction.anomaly_score,
     )
     assert shared_anomaly_prediction.risk_score == approx(first_prediction.risk_score)
+    second.share_anomaly_model_from(first)
+    assert second.anomaly is first.anomaly

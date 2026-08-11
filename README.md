@@ -50,14 +50,14 @@ enter graph statistics only after a configurable confirmation delay.
 
 ## Measured reference results
 
-Reference: commit `4b7a660`, seed 7, 2,225 simulated payments, chronological split of
+Reference: commit `7cd199f`, seed 7, 2,225 simulated payments, chronological split of
 1,446 train / 334 validation / 445 test rows on Windows 11, Python 3.12.13, an 8-logical-CPU
 Intel64 host. Thresholds were optimized on validation data and evaluated once on test data.
 
 | Held-out metric | Champion | Shadow challenger |
 |---|---:|---:|
-| PR-AUC | 0.7179 | 0.7168 |
-| ROC-AUC | 0.8848 | 0.8867 |
+| PR-AUC | 0.7163 | 0.7166 |
+| ROC-AUC | 0.8839 | 0.8869 |
 | Precision | 0.5833 | 0.5870 |
 | Recall | 0.7368 | 0.7105 |
 | Recall at 1% FPR | 0.5526 | 0.5526 |
@@ -65,7 +65,7 @@ Intel64 host. Thresholds were optimized on validation data and evaluated once on
 | Estimated total cost | 2,095.35 | 2,233.93 |
 
 Champion decisions produced 20 false positives and 19 manual reviews. Sequential warm-model
-in-process latency was p50 `18.43 ms`, p95 `21.81 ms`, and p99 `27.04 ms`; it includes
+in-process latency was p50 `7.67 ms`, p95 `11.50 ms`, and p99 `13.22 ms`; it includes
 features, graph updates, both models, TreeSHAP contributions, and audit serialization, but
 excludes HTTP and network transport. “Fraud captured” and costs use simulated labels and
 configured assumptions; they are not realized financial savings.
@@ -80,9 +80,9 @@ configured assumptions; they are not realized financial savings.
 
 | Same-seed comparison | Baseline | Optimized | Change |
 |---|---:|---:|---:|
-| Feature replay | 7.981 s | 0.100 s | 79.5× faster |
-| P99 decision latency | 43.92 ms | 27.04 ms | 38.4% lower |
-| PR-AUC | 0.6650 | 0.7179 | +0.0529 |
+| Feature replay | 7.981 s | 0.114 s | 69.9× faster |
+| P99 decision latency | 43.92 ms | 13.22 ms | 69.9% lower |
+| PR-AUC | 0.6650 | 0.7163 | +0.0513 |
 | Fraud amount captured | 80.82% | 84.05% | +3.24 pp |
 | Estimated total cost | 2,461.21 | 2,095.35 | 14.9% lower |
 | False positives | 5 | 20 | +15 |
@@ -189,6 +189,7 @@ Architecture Decision Records live in [`docs/adr`](docs/adr):
 - [ADR 003: hybrid models instead of graph deep learning](docs/adr/003-hybrid-risk-model.md)
 - [ADR 004: cost thresholds and shadow challenger](docs/adr/004-cost-decisioning-and-shadow.md)
 - [ADR 005: incremental graph component index](docs/adr/005-incremental-graph-index.md)
+- [ADR 006: shared anomaly scoring](docs/adr/006-shared-anomaly-scoring.md)
 
 ## Known limitations
 

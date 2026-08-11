@@ -103,6 +103,7 @@ class FraudDecisionService:
                 anomaly_estimators=48,
             )
         ).fit(train_rows, train_labels)
+        challenger.share_anomaly_model_from(champion)
         engine = DecisionEngine()
         scores = champion.predict_risk_many(
             [row.features for row in validation], [row.graph_score for row in validation]
@@ -121,11 +122,14 @@ class FraudDecisionService:
             graph_snapshot = self.graph.compute(event)
             features = {**temporal, **graph_snapshot.features}
             champion = self.champion.predict(features, graph_snapshot.graph_score)
+            shared_anomaly = (
+                champion.anomaly_score if self.champion.anomaly is self.challenger.anomaly else None
+            )
             challenger = self.challenger.predict(
                 features,
                 graph_snapshot.graph_score,
                 explain=False,
-                anomaly_score_override=champion.anomaly_score,
+                anomaly_score_override=shared_anomaly,
             )
             decision = self.engine.decide(champion.risk_score)
             shadow_decision = self.engine.decide(challenger.risk_score)

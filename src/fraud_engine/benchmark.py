@@ -154,6 +154,7 @@ def run_benchmark(
     challenger = RiskModel(challenger_config).fit(
         [row.features for row in train], [row.label for row in train]
     )
+    challenger.share_anomaly_model_from(champion)
     validation_scores = champion.predict_risk_many(
         [row.features for row in validation], [row.graph_score for row in validation]
     )

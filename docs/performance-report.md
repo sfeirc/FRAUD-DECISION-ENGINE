@@ -23,15 +23,22 @@ The shadow challenger also stopped calculating TreeSHAP contributions that were 
 returned. Champion explanations remain present on every authorization. Offline threshold and
 benchmark evaluation now score matrices in batches instead of making one model call per row.
 
+A second profile attributed 2.019 of 2.229 seconds across 50 payments to two identical
+100-tree Isolation Forest calls per payment. Validation sweeps over 16/32/48/64/100 trees
+selected 48: it retained the minimum configured validation cost of 1,447.44 while PR-AUC
+changed from 0.6998 to 0.6995. Champion and challenger now share that fitted anomaly model and
+compute its score once. A profiled 50-payment mean fell from 44.6 to 15.0 ms before the final
+non-profiled benchmark measured 7.67 ms p50.
+
 ## Same-seed measurements
 
 | Metric | Baseline | Optimized | Change |
 |---|---:|---:|---:|
-| Feature replay | 7.981 s | 0.100 s | 79.5× faster |
-| P50 authorization latency | 36.08 ms | 18.43 ms | 48.9% lower |
-| P95 authorization latency | 41.71 ms | 21.81 ms | 47.7% lower |
-| P99 authorization latency | 43.92 ms | 27.04 ms | 38.4% lower |
-| PR-AUC | 0.6650 | 0.7179 | +0.0529 |
+| Feature replay | 7.981 s | 0.114 s | 69.9× faster |
+| P50 authorization latency | 36.08 ms | 7.67 ms | 78.7% lower |
+| P95 authorization latency | 41.71 ms | 11.50 ms | 72.4% lower |
+| P99 authorization latency | 43.92 ms | 13.22 ms | 69.9% lower |
+| PR-AUC | 0.6650 | 0.7163 | +0.0513 |
 | Configured estimated cost | 2,461.21 | 2,095.35 | 14.9% lower |
 
 Both runs used seed 7, 2,225 simulator events, the same chronological partitions, cost
@@ -49,4 +56,3 @@ No throughput, concurrent latency, distributed graph, durability, or production 
 made. The component index adds duplicated state that must remain consistent with NetworkX;
 tests cover the reference transitions, but a durable implementation would need transactional
 recovery or reconstruction from the event log.
-
