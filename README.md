@@ -87,7 +87,7 @@ configured assumptions; they are not realized financial savings.
 
 ## Quick start
 
-Python 3.11+ is required.
+Python 3.12+ is required.
 
 ```bash
 python -m pip install -e ".[dev]"

@@ -7,7 +7,7 @@ name = "fraud-decision-engine"
 version = "0.1.0"
 description = "Cost-sensitive real-time payment fraud decision engine with temporal and graph signals"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115,<1",
   "joblib>=1.4,<2",
@@ -50,7 +50,7 @@ target-version = "py311"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 packages = ["fraud_engine"]
 disable_error_code = ["import-untyped"]
