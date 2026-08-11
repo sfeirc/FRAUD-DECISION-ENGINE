@@ -1,0 +1,94 @@
+{
+  "artifact_schema_version": 1,
+  "engine_version": "0.3.0",
+  "created_at_utc": "2026-08-11T11:38:24.494312+00:00",
+  "source_commit": "20c659496e641849232b916e89e10b25c049b110",
+  "bundle": {
+    "filename": "bundle.joblib",
+    "sha256": "a9b2f5a5176e5e7fe11cb09ab2e483a7b346eedc709ced7a42a4a61a03c3f8f3"
+  },
+  "feature_contract": {
+    "ordered_names": [
+      "amount",
+      "tx_count_1m",
+      "tx_count_1h",
+      "tx_count_1d",
+      "spend_1h",
+      "avg_amount_history",
+      "amount_to_average_ratio",
+      "distance_from_typical_km",
+      "is_new_device",
+      "is_new_merchant",
+      "failed_auth_count_1h",
+      "authentication_failed",
+      "is_card_not_present",
+      "is_high_risk_merchant_category",
+      "seconds_since_last_transaction",
+      "customer_history_count",
+      "shared_device_customers",
+      "shared_ip_customers",
+      "suspicious_component_size",
+      "merchant_fraud_concentration",
+      "max_entity_degree",
+      "neighborhood_confirmed_fraud_rate",
+      "merchant_customer_count",
+      "device_observations",
+      "ip_observations"
+    ],
+    "sha256": "63030cfd54b8ad7158997e2c756a2b18790f57a8cdb5270976acadf0d7b9dbc7"
+  },
+  "training": {
+    "seed": 7,
+    "normal_events": 2000,
+    "fraud_events_per_pattern": 25,
+    "validation_rows": 334
+  },
+  "models": {
+    "champion": {
+      "version": "champion-2.0",
+      "n_estimators": 120,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "supervised_weight": 0.85,
+      "anomaly_weight": 0.1,
+      "graph_weight": 0.05,
+      "anomaly_estimators": 48,
+      "random_state": 17
+    },
+    "challenger": {
+      "version": "challenger-2.1",
+      "n_estimators": 120,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "supervised_weight": 0.9,
+      "anomaly_weight": 0.05,
+      "graph_weight": 0.05,
+      "anomaly_estimators": 48,
+      "random_state": 17
+    }
+  },
+  "decision_policy": {
+    "assumptions": {
+      "fraud_loss_rate": 1.0,
+      "false_positive_decline_cost": 35.0,
+      "false_positive_review_cost": 8.0,
+      "manual_review_cost": 4.0,
+      "operational_cost": 0.05,
+      "review_fraud_capture_rate": 0.8
+    },
+    "thresholds": {
+      "review": 0.28400000000000003,
+      "decline": 0.5720000000000001
+    }
+  },
+  "environment": {
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "packages": {
+      "joblib": "1.5.3",
+      "numpy": "2.3.5",
+      "scikit-learn": "1.9.0",
+      "xgboost": "3.4.0"
+    }
+  }
+}

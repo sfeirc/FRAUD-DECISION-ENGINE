@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from fraud_engine import __version__
+from fraud_engine.artifacts import load_artifact
 from fraud_engine.decisioning import CostAssumptions
 from fraud_engine.demo import run_scenario
 from fraud_engine.domain import AuthorizationRequest, AuthorizationResponse
@@ -31,7 +32,7 @@ def create_app(service: FraudDecisionService | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if not hasattr(app.state, "fraud_service"):
-            app.state.fraud_service = FraudDecisionService.train_default()
+            app.state.fraud_service = load_artifact()
         yield
 
     app = FastAPI(

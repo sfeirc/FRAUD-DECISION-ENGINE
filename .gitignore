@@ -9,8 +9,5 @@ htmlcov/
 dist/
 build/
 *.egg-info/
-artifacts/models/*.json
-artifacts/models/*.ubj
-artifacts/models/*.joblib
 artifacts/demo/*.json
 artifacts/demo/*.html

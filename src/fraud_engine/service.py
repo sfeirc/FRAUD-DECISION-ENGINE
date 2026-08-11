@@ -52,11 +52,14 @@ class FraudDecisionService:
         challenger: RiskModel,
         engine: DecisionEngine,
         validation_records: list[FeatureRecord],
+        *,
+        artifact_manifest: dict[str, object] | None = None,
     ) -> None:
         self.champion = champion
         self.challenger = challenger
         self.engine = engine
         self.validation_records = validation_records
+        self.artifact_manifest = artifact_manifest
         self.feature_store = OnlineFeatureStore()
         self.graph = FraudGraph()
         self.audit_log: deque[dict[str, object]] = deque(maxlen=2_000)
@@ -210,6 +213,12 @@ class FraudDecisionService:
             "decision_counts": dict(decision_counts),
             "review_queue": decision_counts[Decision.REVIEW.value],
             "thresholds": asdict(self.engine.thresholds),
+            "artifact": {
+                "source_commit": self.artifact_manifest.get("source_commit"),
+                "created_at_utc": self.artifact_manifest.get("created_at_utc"),
+            }
+            if self.artifact_manifest
+            else None,
             "latency_ms": {
                 "p50": float(np.percentile(values, 50)),
                 "p95": float(np.percentile(values, 95)),
