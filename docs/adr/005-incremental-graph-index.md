@@ -27,7 +27,7 @@ state for component size, observation count, and confirmed-fraud count.
 
 ## Advantages
 
-- Same-seed feature replay measured 7.981 to 0.100 seconds (79.5× faster).
+- Same-seed feature replay measured 7.981 to 0.139 seconds (57.5× faster).
 - Candidate features remain read-before-write.
 - Investigator ring export is unchanged.
 
@@ -42,4 +42,3 @@ state for component size, observation count, and confirmed-fraud count.
 Tests compare indexed component results to NetworkX traversal. Any future edge expiry or graph
 deletion requires a different dynamic-connectivity design. A distributed implementation must
 define component ownership and recovery before reusing this approach.
-

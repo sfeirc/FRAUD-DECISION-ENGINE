@@ -73,16 +73,16 @@ and attackers adapt to interventions.
 
 ## Reference findings
 
-The optimized reference run achieved champion PR-AUC 0.7179 and recall 0.7368 on 445 held-out
+The optimized reference run achieved champion PR-AUC 0.7163 and recall 0.7368 on 445 held-out
 synthetic events. At validation-optimized thresholds, it captured 84.05% of labeled fraud
 amount with 20 false positives and 19 reviews. The shadow challenger captured the same amount
 but had higher estimated total cost (2,233.93 versus 2,095.35), so this single experiment
 supplies no case for promotion. Full context is in the optimized `summary.json`.
 
 Against the preserved same-seed baseline, component-indexing and shadow explanation changes
-reduced feature replay from 7.981 to 0.100 seconds and p99 in-process authorization latency
-from 43.92 to 27.04 ms. Added authorization-time features and validation-selected fusion
-raised PR-AUC from 0.6650 to 0.7179 and reduced configured estimated cost by 14.9%. False
+reduced feature replay from 7.981 to 0.139 seconds and p99 in-process authorization latency
+from 43.92 to 11.94 ms. Added authorization-time features and validation-selected fusion
+raised PR-AUC from 0.6650 to 0.7163 and reduced configured estimated cost by 14.9%. False
 positives rose from five to 20, an explicit business trade-off rather than a universal win.
 
 ## What the evidence does not establish

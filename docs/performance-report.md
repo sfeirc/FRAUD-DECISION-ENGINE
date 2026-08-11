@@ -28,16 +28,16 @@ A second profile attributed 2.019 of 2.229 seconds across 50 payments to two ide
 selected 48: it retained the minimum configured validation cost of 1,447.44 while PR-AUC
 changed from 0.6998 to 0.6995. Champion and challenger now share that fitted anomaly model and
 compute its score once. A profiled 50-payment mean fell from 44.6 to 15.0 ms before the final
-non-profiled benchmark measured 7.67 ms p50.
+non-profiled benchmark measured 7.33 ms p50.
 
 ## Same-seed measurements
 
 | Metric | Baseline | Optimized | Change |
 |---|---:|---:|---:|
-| Feature replay | 7.981 s | 0.114 s | 69.9× faster |
-| P50 authorization latency | 36.08 ms | 7.67 ms | 78.7% lower |
-| P95 authorization latency | 41.71 ms | 11.50 ms | 72.4% lower |
-| P99 authorization latency | 43.92 ms | 13.22 ms | 69.9% lower |
+| Feature replay | 7.981 s | 0.139 s | 57.5× faster |
+| P50 authorization latency | 36.08 ms | 7.33 ms | 79.7% lower |
+| P95 authorization latency | 41.71 ms | 9.35 ms | 77.6% lower |
+| P99 authorization latency | 43.92 ms | 11.94 ms | 72.8% lower |
 | PR-AUC | 0.6650 | 0.7163 | +0.0513 |
 | Configured estimated cost | 2,461.21 | 2,095.35 | 14.9% lower |
 

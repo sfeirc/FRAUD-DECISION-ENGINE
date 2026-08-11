@@ -37,7 +37,7 @@ Validation sweeps produced:
 | 100 | 0.6998 | 1,447.44 |
 
 The smallest forest retaining the minimum cost was 48 trees. On the frozen test benchmark it
-measured PR-AUC 0.7163 and 13.22 ms p99, versus baseline 0.6650 and 43.92 ms p99.
+measured PR-AUC 0.7163 and 11.94 ms p99, versus baseline 0.6650 and 43.92 ms p99.
 
 ## Advantages
 
@@ -55,4 +55,3 @@ measured PR-AUC 0.7163 and 13.22 ms p99, versus baseline 0.6650 and 43.92 ms p99
 
 An anomaly-model challenger must use an independent fitted object, accepting the measured
 latency cost. Promotion experiments must report both quality and online-path latency.
-

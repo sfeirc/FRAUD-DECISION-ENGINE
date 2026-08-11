@@ -1,0 +1,35 @@
+{
+  "baseline_commit": "27ac57e86d05b2ef77ec58146a2e7f8d10d7c9f8",
+  "optimized_commit": "368629793cab60ff308f71ad0c3497c5cf5e7d49",
+  "feature_replay": {
+    "baseline_seconds": 7.981324599997606,
+    "optimized_seconds": 0.13887830000021495,
+    "speedup": 57.46991862648991
+  },
+  "decision_latency_p99_ms": {
+    "baseline": 43.9226,
+    "optimized": 11.943468000000001,
+    "reduction_fraction": 0.7280792120685022
+  },
+  "pr_auc": {
+    "baseline": 0.6650205651412012,
+    "optimized": 0.7163425064603621,
+    "absolute_change": 0.0513219413191609
+  },
+  "estimated_business_cost": {
+    "baseline": 2461.212,
+    "optimized": 2095.3499999999995,
+    "reduction_fraction": 0.14865115235908188
+  },
+  "fraud_capture_rate": {
+    "baseline": 0.8081670643450138,
+    "optimized": 0.8405379503460787,
+    "absolute_change": 0.03237088600106486
+  },
+  "false_positives": {
+    "baseline": 5,
+    "optimized": 20,
+    "change": 15
+  },
+  "scope": "Same synthetic scenario, seed, split, hardware, and cost assumptions. Latency remains sequential, warm, in-process, and excludes HTTP transport."
+}

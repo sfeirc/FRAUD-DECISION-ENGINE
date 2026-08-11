@@ -18,8 +18,8 @@ make demo
 The deterministic demo sends ordinary payments through the authorization service, injects
 a coordinated ring sharing a device and IP, exports its graph, explains each decision, and
 raises false-positive costs to re-optimize both decision thresholds. In the checked run,
-mean risk moved from `0.09581` for normal traffic to `0.77182` for the ring; review/decline
-thresholds moved from `0.284/0.572` to `0.716/0.740`. These are simulator observations,
+mean risk moved from `0.09659` for normal traffic to `0.77738` for the ring; review/decline
+thresholds moved from `0.284/0.572` to `0.572/0.716`. These are simulator observations,
 not estimates of live fraud performance.
 
 The dashboard shows the authorization stream, champion and shadow scores, explanations,
@@ -50,7 +50,7 @@ enter graph statistics only after a configurable confirmation delay.
 
 ## Measured reference results
 
-Reference: commit `7cd199f`, seed 7, 2,225 simulated payments, chronological split of
+Reference: commit `3686297`, seed 7, 2,225 simulated payments, chronological split of
 1,446 train / 334 validation / 445 test rows on Windows 11, Python 3.12.13, an 8-logical-CPU
 Intel64 host. Thresholds were optimized on validation data and evaluated once on test data.
 
@@ -65,7 +65,7 @@ Intel64 host. Thresholds were optimized on validation data and evaluated once on
 | Estimated total cost | 2,095.35 | 2,233.93 |
 
 Champion decisions produced 20 false positives and 19 manual reviews. Sequential warm-model
-in-process latency was p50 `7.67 ms`, p95 `11.50 ms`, and p99 `13.22 ms`; it includes
+in-process latency was p50 `7.33 ms`, p95 `9.35 ms`, and p99 `11.94 ms`; it includes
 features, graph updates, both models, TreeSHAP contributions, and audit serialization, but
 excludes HTTP and network transport. “Fraud captured” and costs use simulated labels and
 configured assumptions; they are not realized financial savings.
@@ -80,8 +80,8 @@ configured assumptions; they are not realized financial savings.
 
 | Same-seed comparison | Baseline | Optimized | Change |
 |---|---:|---:|---:|
-| Feature replay | 7.981 s | 0.114 s | 69.9× faster |
-| P99 decision latency | 43.92 ms | 13.22 ms | 69.9% lower |
+| Feature replay | 7.981 s | 0.139 s | 57.5× faster |
+| P99 decision latency | 43.92 ms | 11.94 ms | 72.8% lower |
 | PR-AUC | 0.6650 | 0.7163 | +0.0513 |
 | Fraud amount captured | 80.82% | 84.05% | +3.24 pp |
 | Estimated total cost | 2,461.21 | 2,095.35 | 14.9% lower |
