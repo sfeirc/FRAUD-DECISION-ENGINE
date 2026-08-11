@@ -103,6 +103,27 @@ class PaymentSimulator:
             "is_fraud": fraud_pattern is not None,
             "fraud_pattern": fraud_pattern,
         }
+        if fraud_pattern is None:
+            if self.rng.random() < 0.05:
+                values["device_id"] = f"dev_{customer[4:]}_secondary"
+            if self.rng.random() < 0.08:
+                values["ip_address"] = self._ip(16_000_000 + index % 5)
+            if self.rng.random() < 0.03:
+                foreign = self.rng.choice([code for code in COUNTRIES if code != country])
+                travel_lat, travel_lon, travel_currency = COUNTRIES[foreign]
+                values.update(
+                    country=foreign,
+                    latitude=travel_lat,
+                    longitude=travel_lon,
+                    currency=travel_currency,
+                )
+            if self.rng.random() < 0.02:
+                amount_value = values["amount"]
+                if not isinstance(amount_value, (int, float)):
+                    raise TypeError("generated amount must be numeric")
+                values["amount"] = round(amount_value * self.rng.uniform(4, 9), 2)
+            if self.rng.random() < 0.05:
+                values["merchant_category"] = self.rng.choice(MCCS[4:])
         if overrides:
             values.update(overrides)
         return PaymentEvent.model_validate(values)
@@ -110,23 +131,34 @@ class PaymentSimulator:
     def _fraud_events(self, start_index: int, start: datetime) -> list[PaymentEvent]:
         events: list[PaymentEvent] = []
         size = self.config.fraud_events_per_pattern
-        pattern_spacing_seconds = (self.config.normal_events * 30 * 0.8) / max(
-            len(self.config.enabled_patterns) - 1, 1
-        )
+        attack_window_seconds = self.config.normal_events * 30 * 0.8
         for pattern_index, pattern in enumerate(self.config.enabled_patterns):
             victims = self.rng.sample(self.customers, min(max(4, size // 3), len(self.customers)))
             shared_device = f"dev_ring_{pattern_index}"
             shared_ip = self._ip(15_000_000 + pattern_index)
             compromised = self.merchants[pattern_index % len(self.merchants)]
+            cluster_size = max(1, math.ceil(size / 5))
+            cluster_count = math.ceil(size / cluster_size)
             for offset in range(size):
                 customer = victims[offset % len(victims)]
+                cluster_index = offset // cluster_size
+                if pattern in {"high_velocity", "transaction_burst"}:
+                    attack_progress = cluster_index / max(cluster_count - 1, 1)
+                else:
+                    attack_progress = offset / max(size - 1, 1)
                 when = start + timedelta(
-                    seconds=pattern_index * pattern_spacing_seconds + offset * 2
+                    seconds=(
+                        attack_progress * attack_window_seconds
+                        + pattern_index * 0.25
+                        + (offset % cluster_size) * 2
+                    )
                 )
-                overrides: dict[str, object] = {"amount": round(self.rng.uniform(150, 900), 2)}
+                overrides: dict[str, object] = {}
                 if pattern == "account_takeover":
                     overrides.update(
-                        device_id=f"dev_ato_{customer}", authentication_method="card_not_present"
+                        device_id=f"dev_ato_{customer}",
+                        authentication_method="card_not_present",
+                        authentication_successful=self.rng.random() > 0.20,
                     )
                 elif pattern == "card_testing":
                     overrides.update(
@@ -145,7 +177,7 @@ class PaymentSimulator:
                         merchant_category="luxury", amount=round(self.rng.uniform(800, 4_000), 2)
                     )
                 elif pattern in {"high_velocity", "transaction_burst"}:
-                    when = start + timedelta(seconds=pattern_index * 90 + offset % 4)
+                    when += timedelta(seconds=offset % cluster_size)
                 elif pattern == "new_device":
                     overrides.update(device_id=f"dev_new_{start_index + len(events)}")
                 elif pattern == "compromised_merchant":
