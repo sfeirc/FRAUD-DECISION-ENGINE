@@ -110,6 +110,9 @@ class PaymentSimulator:
     def _fraud_events(self, start_index: int, start: datetime) -> list[PaymentEvent]:
         events: list[PaymentEvent] = []
         size = self.config.fraud_events_per_pattern
+        pattern_spacing_seconds = (self.config.normal_events * 30 * 0.8) / max(
+            len(self.config.enabled_patterns) - 1, 1
+        )
         for pattern_index, pattern in enumerate(self.config.enabled_patterns):
             victims = self.rng.sample(self.customers, min(max(4, size // 3), len(self.customers)))
             shared_device = f"dev_ring_{pattern_index}"
@@ -117,7 +120,9 @@ class PaymentSimulator:
             compromised = self.merchants[pattern_index % len(self.merchants)]
             for offset in range(size):
                 customer = victims[offset % len(victims)]
-                when = start + timedelta(seconds=pattern_index * (size + 5) + offset * 2)
+                when = start + timedelta(
+                    seconds=pattern_index * pattern_spacing_seconds + offset * 2
+                )
                 overrides: dict[str, object] = {"amount": round(self.rng.uniform(150, 900), 2)}
                 if pattern == "account_takeover":
                     overrides.update(
@@ -167,7 +172,7 @@ class PaymentSimulator:
             when = self.config.start_time + timedelta(seconds=index * 30 + self.rng.randint(0, 10))
             events.append(self._event(index, when, customer))
         fraud_start = self.config.start_time + timedelta(
-            seconds=self.config.normal_events * 30 + 60
+            seconds=self.config.normal_events * 30 * 0.1
         )
         events.extend(self._fraud_events(len(events), fraud_start))
         return sorted(events, key=lambda event: (event.event_time, event.transaction_id))
