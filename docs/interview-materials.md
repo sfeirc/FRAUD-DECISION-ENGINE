@@ -2,72 +2,95 @@
 
 ## Technical talking points
 
-- The hard boundary is read-before-write state: explain how both temporal and graph features
-  exclude the current payment and how fraud feedback is delayed.
-- Separate risk ranking from action policy: the model estimates risk; validation-time cost
-  optimization selects approve/review/decline thresholds.
-- Explain why the challenger can have slightly higher fraud capture yet higher total cost,
-  and why one synthetic window is insufficient for promotion.
-- Defend the absence of a GNN: structural signals are inspectable and no benchmark has yet
-  justified added serving complexity.
-- Be explicit that p99 is sequential in-process latency, not an HTTP SLO or throughput test.
+- Start with read-before-write: temporal and graph features exclude the current payment, and
+  confirmed fraud arrives only after a delay.
+- Separate ranking, calibration, and action: XGBoost/anomaly/graph estimate risk; Platt scaling
+  gives testable probability behavior; economic thresholds own the customer decision.
+- Explain why a validation queue cap is not a runtime guarantee: two unseen seeds exceeded 5%,
+  motivating a hard time-bucketed capacity controller.
+- Defend the GNN omission: structural signals are inspectable and no incremental experiment
+  justifies learned message-passing cost.
+- Describe the durability boundary precisely: SQLite makes exact retries and audit durable;
+  temporal/graph state is still in memory, so this is not exactly-once streaming.
+- Use the load curve to explain architecture: throughput peaked around concurrency 4 and p99
+  climbed at 8/16 because ordered state mutation is serialized.
+- Discuss the adverse result: v0.3 gained control/calibration but seed-7 configured cost rose
+  6.8%. Engineering credibility means publishing that, not renaming it an optimization.
 
 ## Three CV bullets
 
-- Built a real-time payment authorization reference that fuses XGBoost, Isolation Forest,
-  point-in-time velocity features, and an incremental customer/card/device/IP/merchant graph
-  into auditable approve/review/decline decisions.
-- Implemented leakage-safe offline replay, delayed fraud feedback, native TreeSHAP reason
-  factors, and non-decisional champion/challenger shadow scoring behind a FastAPI contract.
-- Created a reproducible economic/latency benchmark with raw measurements and environment
-  capture; on its documented synthetic holdout, measured 0.7163 PR-AUC and 11.94 ms in-process
-  p99 latency (single host, sequential requests, excluding HTTP transport).
+- Built an auditable payment fraud decision engine combining leakage-safe velocity features,
+  XGBoost, Isolation Forest, Platt calibration, and an indexed customer/card/device/IP/merchant
+  graph to produce cost-sensitive approve/review/decline actions.
+- Implemented checksum-verified champion/challenger artifacts, shadow inference, TreeSHAP-style
+  explanations, SQLite-backed idempotent retries/audit, late-event watermarks, Prometheus
+  metrics, and a one-command coordinated-ring dashboard demo.
+- Created reproducible seed-7, five-seed, and real-HTTP benchmark suites with raw data and
+  environment capture; measured 0.6677 mean PR-AUC across five synthetic seeds and local
+  single-worker saturation near concurrency 4 (explicitly scoped, not a production claim).
 
 ## LinkedIn project description
 
-I built Aegis, an end-to-end fraud decision engine focused on the part a classification demo
-usually omits: turning uncertain risk into an economically explicit approve, review, or
-decline action. The service combines leakage-safe temporal features, XGBoost, Isolation
-Forest, and an incremental entity graph; runs a challenger in shadow mode; and returns model
-versions, native contribution factors, rules, graph signals, trace IDs, and latency for every
-authorization. A deterministic demo injects a coordinated shared-device/IP ring and lets the
-operator change customer-friction costs to re-optimize thresholds. The repository includes
-tests, CI, ADRs, raw benchmark rows, generated figures, and prominent limitations. All
-published numbers are from the checked synthetic benchmark and are labeled accordingly.
+I built Aegis, an end-to-end payment fraud decision engine focused on what classification
+demos usually omit: point-in-time state, coordinated entity risk, calibrated probabilities,
+economically explicit approve/review/decline policy, retry correctness, model provenance, and
+operational evidence. The service combines XGBoost, Isolation Forest, and an incremental
+customer/card/device/IP/merchant graph; runs a challenger in shadow; and returns model
+contributions, rules, graph signals, trace IDs, and latency. Its demo injects a coordinated
+shared-device/IP ring and exposes cost and review-capacity controls in a live dashboard. I
+published raw single-seed, five-seed, and concurrent HTTP results—including regressions and
+variance—plus CI, tests, ten ADRs, limitations, and a technical report. All metrics come from
+checked synthetic runs and are labeled as such.
 
 ## 30-second interview pitch
 
-Aegis is a payment fraud decision engine, not just a classifier. A payment is scored using
-point-in-time velocity features, XGBoost, Isolation Forest, and graph signals across customer,
-card, device, IP, and merchant. A separate cost engine chooses approve, review, or decline,
-while a challenger runs in shadow and every response is explainable and auditable. The demo
-injects a coordinated ring and visibly changes graph risk and decisions. I also built a
-reproducible benchmark that records every raw result and its exact environment, and I state
-clearly where the in-memory reference stops short of production infrastructure.
+Aegis is a payment fraud decision system, not a Kaggle classifier. It computes leakage-safe
+temporal and graph features, fuses supervised and anomaly risk, calibrates the score, then
+uses explicit fraud, customer, and review costs to approve, review, or decline. A challenger
+runs in shadow and each response is explainable, versioned, idempotent, and journaled. The
+demo makes a coordinated ring visible. I also measured five independent seeds and the real
+HTTP path; the results expose both quality variance and the single-process contention limit,
+so the repository shows engineering judgment rather than unsupported scale claims.
 
 ## Two-minute technical interview pitch
 
-The design starts with a strict point-in-time contract. For each authorization, the service
-reads customer windows and graph structure before inserting the payment. Offline training
-replays through that exact code, and simulated fraud confirmations enter graph statistics
-only after a delay. That prevents the two most common leakage paths in fraud projects.
+The core invariant is point-in-time correctness. For each authorization, Aegis checks the
+idempotency journal and customer watermark, then reads temporal windows and graph structure
+before inserting the event. Offline training replays through the same feature and graph code,
+and simulated fraud labels enter neighborhood statistics only after a confirmation delay.
 
 The risk layer is deliberately complementary. XGBoost learns labeled interactions, Isolation
-Forest provides a novelty view trained on legitimate traffic, and the graph captures shared
-devices, IPs, suspicious components, degree, merchant concentration, and neighborhood fraud.
-Their fused score does not directly block a payment. I grid-search ordered review and decline
-thresholds using explicit fraud-loss, customer-friction, analyst, and operating costs on a
-chronological validation window. A second model scores the identical event in shadow but
-cannot influence the customer decision.
+Forest scores novelty against legitimate training traffic, and the graph captures shared
+devices/IPs, component size, degree, merchant concentration, and delayed neighbor fraud. An
+incremental union-find index avoids traversing the whole connected component per request. A
+Platt calibrator is fitted on chronological validation. The score still does not directly
+block a payment: ordered review/decline thresholds minimize configured fraud loss, customer
+harm, analyst cost, and operating cost while respecting a validation review-rate constraint.
 
-Every result includes the champion version, shadow result, native XGBoost contribution
-values, deterministic rules, graph signals, timestamp, trace ID, and measured latency. The
-dashboard streams those decisions, renders a detected ring, and re-optimizes thresholds when
-cost assumptions change.
+Champion and challenger are bundled with their feature order, calibration, policy,
+dependencies, source commit, and SHA-256 checksum. Startup loads that artifact rather than
+retraining. Every decision includes champion and shadow scores, native XGBoost contribution
+values, rules, graph signals, model version, timestamp, trace ID, and latency. SQLite provides
+exact retry semantics, request-hash conflicts, customer watermarks, and durable audit, but I
+am careful not to call in-memory feature/graph state exactly once.
 
-For evidence, the checked synthetic benchmark saves 445 raw held-out rows plus hardware,
-OS, dependencies, commit, configuration, and generated SVGs. It measured 0.7163 PR-AUC and
-11.94 ms in-process p99 on one sequential Windows host. I would not call that a production
-SLO: state is local and non-durable, latency excludes transport and concurrency, and labels
-are synthetic. The next engineering step is an idempotent event-log-backed state layer, then
-multi-window promotion gates and concurrent failure testing.
+The evidence has three layers. Seed 7 measured 0.7163 PR-AUC and 84.60% fraud-value capture
+on 445 synthetic test payments. Across five separately trained seeds, mean PR-AUC was 0.6677
+and false positives ranged from 2 to 60—important variance hidden by one seed. A 2,000-request
+loopback HTTP run with full-sync SQLite measured about 92 req/s at concurrency 4, then
+saturated; p99 rose from 23 ms at concurrency 1 to 295 ms at 16. Those are local reference
+measurements, not live accuracy or a production SLO. The next step is event-log-backed state
+recovery and a hard runtime review budget, followed by failure-injected distributed tests.
+
+## Recruiter 30-second test
+
+- **What is impressive?** A complete, measurable fraud decision path: leakage control, graph
+  intelligence, calibrated economic policy, shadowing, provenance, retry correctness, and
+  full-path load evidence.
+- **Can it be reproduced?** Yes: `make demo`, `make benchmark`, `make robustness`, and
+  `make load-benchmark` save raw data, environment, configuration, and generated figures.
+- **Are claims measurable?** Yes, and scopes/adverse outcomes are adjacent to each number.
+- **Are important internals implemented here?** Yes: simulator, online features, graph index,
+  fusion, policy optimizer, artifact contract, idempotency journal, and benchmark harness.
+- **Can decisions be defended?** Ten ADRs record alternatives, advantages, disadvantages, and
+  consequences; limitations distinguish implemented controls from distributed successors.

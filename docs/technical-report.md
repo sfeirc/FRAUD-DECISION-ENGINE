@@ -1,93 +1,140 @@
-# Technical report: risk decisions, not classifications
+# Technical report: fraud decisions, not classifications
 
 ## Executive summary
 
-Aegis is an executable reference for the full fraud decision loop: event simulation,
-point-in-time state, complementary risk signals, cost-based actions, explanations, audit,
-shadow evaluation, dashboarding, and reproducible measurement. It deliberately does not
-claim production scale or live financial impact.
+Aegis is an executable reference for payment authorization: point-in-time event state,
+supervised/anomaly/graph risk, calibrated scores, economic action policy, shadow evaluation,
+explanation, idempotency, durable audit, and reproducible measurement. It does not claim live
+fraud performance, distributed correctness, or production readiness.
 
-## Why fraud imbalance changes evaluation
+## Why class imbalance changes the problem
 
-If fraud prevalence is 0.2%, an always-legitimate classifier is 99.8% accurate and prevents
-nothing. Even ROC-AUC can conceal operational pain because it averages behavior over false-
-positive regions a payment team would never tolerate. PR-AUC focuses on positive-class
-retrieval; precision estimates review/decline purity, while recall estimates missed fraud.
-Recall at a fixed false-positive rate makes the customer-friction budget explicit.
+At 0.2% fraud prevalence, an always-legitimate classifier is 99.8% accurate and prevents no
+loss. ROC-AUC can also conceal operational pain because it averages false-positive regions a
+payment team would never accept. PR-AUC focuses on positive retrieval; precision represents
+review/decline purity; recall represents missed fraud; recall at fixed FPR makes a
+customer-friction budget explicit.
 
-Transaction value matters too. Missing a €2 card test and a €2,000 takeover counts equally
-in ordinary recall but not in loss. The report therefore adds fraud amount captured, false
-positives, reviews, and decomposed estimated cost.
+Value matters. Missing a €2 card test and a €2,000 takeover counts equally in ordinary recall
+but not economically. Aegis therefore reports captured fraud amount, false positives, review
+volume, calibrated probability error, decomposed cost, and tail latency. Accuracy is omitted
+from the recruiter-facing result table by design.
 
 ## Precision, recall, and customer harm
 
-Lowering thresholds usually captures more fraud but blocks more legitimate customers. That
-harm includes abandoned purchases, support contacts, merchant dissatisfaction, and lost
-trust—not only the immediate order value. Reviews offer a middle action but consume analyst
-capacity and add delay. The decision layer keeps these trade-offs outside the model so risk
-estimation and business policy can evolve independently.
+Lowering a threshold generally captures more fraud while blocking more legitimate customers.
+That harm includes abandoned purchases, support contacts, merchant dissatisfaction, and lost
+trust—not only order value. Review offers a middle action but consumes investigators and adds
+delay. The risk model and policy are separate so ranking can change without silently changing
+business action.
 
-## Cost-sensitive decisions
+Two ordered thresholds map risk into approve, review, or decline. Validation search minimizes:
 
-Two ordered thresholds map fused risk into approve, review, or decline. Grid search minimizes
-unrecovered fraud, false-positive impact, review expense, and operating expense over the
-validation period. The dashboard re-runs that optimization when assumptions change. A real
-deployment should add review-capacity constraints, score calibration, confidence intervals,
-and segment-specific policies rather than treating these simulator costs as universal.
+```text
+unrecovered fraud loss
++ legitimate-customer false-positive cost
++ manual-review cost
++ per-authorization operating cost
+```
+
+Candidates above a configured validation review-rate cap are rejected. The five-seed test
+showed that this soft planning constraint can still exceed 5% out of sample; a real system
+needs a hard time-bucketed queue controller and service-level monitoring.
+
+## Calibration and policy selection
+
+The raw fused score is not assumed to be a probability. Each model fits deterministic Platt
+scaling on its chronological validation scores. Brier score and expected calibration error
+are then measured on test. Calibration preserves ranking order, so PR-AUC/ROC-AUC should not
+improve merely from this step.
+
+Calibration and threshold selection currently share validation data. The test partition is
+untouched, but the policy can still overfit validation. A larger system should use separate
+calibration/policy periods or nested rolling evaluation, with segment-level calibration and
+delayed-outcome correction.
 
 ## Online/offline consistency and leakage
 
-Stateful fraud features are particularly vulnerable to future information. A feature such as
-“transactions in the last hour” is invalid if the current event is inserted before the
-window is read. Neighborhood fraud rate is invalid if a future chargeback is attached at
-authorization time. Aegis uses read-before-write state and delayed label feedback, and the
-offline builder calls the same implementations as online authorization.
+Stateful fraud features are vulnerable to future information. “Transactions in the last
+hour” leaks if the current event is inserted before the window is read. Neighborhood fraud
+rate leaks if an eventual chargeback is attached at authorization. Aegis uses read-before-
+write state and delayed feedback; offline replay calls the same implementations as online.
+Tests assert window boundaries, first-use behavior, and delayed graph labels.
+
+Events more than five minutes behind a customer's persisted watermark are rejected rather
+than silently applied to forward-only state. This is a documented reference policy, not a
+claim that five minutes is universally correct.
 
 ## Graph intelligence
 
-Fraudsters rotate individual accounts while reusing infrastructure. The heterogeneous graph
-links customer, card, device, IP, and merchant. Shared device/IP counts reveal fan-out;
-connected-component size and degree reveal coordination; delayed confirmed-fraud density
-propagates known risk; merchant concentration catches common compromise points. The graph
-view also gives investigators a compact explanation that a scalar model score cannot.
+Fraudsters rotate accounts while reusing infrastructure. The heterogeneous graph links
+customer, card, device, IP, and merchant. Shared device/IP counts reveal fan-out; component
+size and degree reveal coordination; delayed confirmed-fraud density propagates known risk;
+merchant concentration catches common compromise points.
 
-No graph neural network is included. The reference dataset and single-seed benchmark do not
-show that learned message passing improves cost enough to justify training, serving, and
-explanation complexity. That is an experiment to earn, not a résumé feature to assume.
+An incremental union-find index stores component aggregates for scoring; NetworkX retains
+explicit edges for investigator visualization. This avoids a full connected-component walk
+per payment. No GNN is included because no experiment demonstrates enough incremental
+economic value to justify training, serving, and explanation complexity.
 
-## Champion/challenger operation
+## Champion/challenger and artifacts
 
-Both versions score every payment from the same features. The champion alone enters the
-decision engine; challenger output is attached to the audit record and compared economically
-under champion thresholds. Promotion would require several time windows, uncertainty tests,
-segment analysis, drift checks, and an explicit rollback plan. This repository implements
-shadow execution, not automatic promotion.
+Champion and challenger score identical features. Only champion risk enters policy; the
+challenger result is journaled and compared under champion thresholds. The fitted estimators,
+calibrators, validation records, thresholds, assumptions, feature order, source commit, and
+dependency versions are stored in a versioned bundle. Startup validates its SHA-256 checksum
+and feature contract and never retrains.
 
-## Concept drift
+This is a local artifact contract, not a model registry. Promotion still needs several time
+windows, economic confidence bounds, calibration/segment analysis, drift checks, human
+approval, and rollback.
 
-Fraud tactics, merchant mix, authentication policy, customer travel, and seasonal spend all
-move feature and label distributions. Monitoring should cover input drift, score calibration,
-action rate, delayed precision/recall, fraud amount capture, review yield, segment fairness,
-and latency. Retraining on a fixed cadence alone is insufficient because labels are delayed
-and attackers adapt to interventions.
+## Retry, ordering, and audit semantics
 
-## Reference findings
+Transaction ID is the idempotency key. SQLite stores a hash of the complete request and the
+complete response under WAL and full synchronous writes. An exact retry returns the original
+response without updating features or graph state; a different payload under the same ID is
+rejected. The audit API reads the durable journal.
 
-The optimized reference run achieved champion PR-AUC 0.7163 and recall 0.7368 on 445 held-out
-synthetic events. At validation-optimized thresholds, it captured 84.05% of labeled fraud
-amount with 20 false positives and 19 reviews. The shadow challenger captured the same amount
-but had higher estimated total cost (2,233.93 versus 2,095.35), so this single experiment
-supplies no case for promotion. Full context is in the optimized `summary.json`.
+Feature and graph state remain in memory. Therefore this is not an exactly-once stream: a
+crash between state mutation and journal commit can create an inconsistency, and state is not
+reconstructed after restart. A distributed design must atomically couple event-log offset,
+state update, and decision record, or make replay the source of truth.
 
-Against the preserved same-seed baseline, component-indexing and shadow explanation changes
-reduced feature replay from 7.981 to 0.139 seconds and p99 in-process authorization latency
-from 43.92 to 11.94 ms. Added authorization-time features and validation-selected fusion
-raised PR-AUC from 0.6650 to 0.7163 and reduced configured estimated cost by 14.9%. False
-positives rose from five to 20, an explicit business trade-off rather than a universal win.
+## Concept drift and customer impact
+
+Fraud tactics, merchant mix, authentication policy, travel, and seasonality move input and
+label distributions. Monitoring should cover input/score drift, calibration, action rate,
+queue utilization, delayed precision/recall, amount capture, review yield, segment parity,
+and latency. Retraining on a fixed cadence is insufficient because labels are delayed and
+interventions change what becomes observable.
+
+False positives deserve the same governance as loss. Thresholds should be segmented only
+when sample size, compliance review, and fairness evidence support the added complexity.
+Approval-rate or revenue guardrails must not become hidden substitutes for protected-class
+analysis.
+
+## Measured findings
+
+The seed-7 held-out result measured 0.7163 PR-AUC, 0.7368 recall, 0.5526 recall at 1% FPR,
+0.0455 Brier score, 84.60% fraud-value capture, 20 false positives, and 11 reviews on 445
+synthetic test events. Calibrated v0.3 estimated cost was 2,238.39, 6.8% higher than the v0.2
+seed-7 policy despite slightly higher capture; calibration/capacity is not presented as a cost
+optimization.
+
+Across five independent seeds, mean PR-AUC was 0.6677 (bootstrap interval 0.6501–0.6937),
+fraud capture was 84.61% (82.39%–86.62%), and false positives ranged from 2 to 60. This wider
+result replaces the temptation to treat the best seed as typical.
+
+The full-path load benchmark measured zero errors over 2,000 requests. Throughput rose from
+70.1 req/s at concurrency 1 to 91.9 req/s at concurrency 4, then saturated; p99 client latency
+rose from 23.44 ms to 295.34 ms by concurrency 16. The shared lock is the demonstrated local
+contention boundary.
 
 ## What the evidence does not establish
 
-It does not establish production accuracy, calibrated probabilities, concurrent capacity,
-durability, exactly-once processing, fairness, regulatory compliance, or a latency SLO. The
-synthetic generator is useful for controlled failure modes but cannot reproduce an issuer's
-selection effects, feedback loops, fraud-label delay, or adversarial adaptation.
+The evidence does not establish live precision, realized savings, probability calibration on
+real customers, fairness, remote/TLS latency, sustained capacity, distributed graph
+consistency, state recovery, regulatory compliance, or an SLO. The simulator is useful for
+controlled attack patterns but cannot reproduce issuer selection effects, adaptive attackers,
+chargeback censoring, or regional policy.

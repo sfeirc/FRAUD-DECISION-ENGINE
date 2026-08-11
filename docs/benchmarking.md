@@ -1,61 +1,62 @@
 # Benchmark methodology
 
-## Reproduction
+## Commands and artifacts
 
 ```bash
-python -m fraud_engine.benchmark \
-  --normal-events 2000 --seed 7 \
-  --output-dir benchmarks/results/reference
-
-python -m fraud_engine.compare \
-  benchmarks/results/reference/summary.json \
-  benchmarks/results/optimized/summary.json
+make benchmark       # seed-7 quality + sequential in-process latency
+make robustness      # five independently trained/evaluated seeds
+make load-benchmark  # real HTTP server at concurrency 1/4/8/16
 ```
 
-The command saves:
+Every suite writes JSON containing hardware, OS, software, commit, and full configuration;
+CSV containing raw measurements; and SVG generated automatically from saved results.
 
-- `summary.json`: CPU/OS, package versions, commit, all configuration, costs, thresholds,
-  partitions, quality/business metrics, and latency percentiles;
-- `raw_measurements.csv`: one row per held-out payment with label, attack family, amount,
-  both scores, champion decision, and measured online-path latency;
-- `quality_metrics.svg` and `latency.svg`: generated directly from the saved measurements.
+| Suite | Raw data | Summary | Figure |
+|---|---|---|---|
+| Seed 7 | `v0.3/raw_measurements.csv` | `v0.3/summary.json` | quality + latency SVG |
+| Five seed | `robustness/per_seed.csv` | `robustness/summary.json` | robustness SVG |
+| HTTP load | `http-load/raw_requests.csv` | `http-load/summary.json` | concurrency SVG |
 
-The comparison command writes a machine-readable delta report and an SVG that includes
-quality, latency, cost, capture, and the false-positive trade-off.
+## Quality protocol
 
-## Protocol
+Events are ordered by event time and transaction ID. Features use a two-hour simulated label
+confirmation delay and split chronologically into 65% train, 15% validation, and 20% test.
+Models fit only on train. Platt calibration and champion thresholds fit on validation. Test is
+evaluated once with frozen models and policy.
 
-Events are ordered by event time and transaction ID. Features are generated with a two-hour
-confirmation delay, then split chronologically into 65% train, 15% validation, and 20% test.
-Models fit only on train. Champion cost thresholds fit only on validation. Both model versions
-are evaluated with those frozen thresholds on test.
-
-Latency uses sequential, warm, in-process calls to `FraudDecisionService.authorize`. It
-includes temporal and graph state, champion and challenger inference, native XGBoost
-contributions, explanations, and audit serialization. It excludes HTTP parsing, network,
-containers, load balancing, cold start, concurrency, and durable storage.
+The five-seed run repeats the entire generation/fit/calibration/policy/test process for seeds
+7, 19, 31, 43, and 59. Its 95% interval is the 2.5/97.5 percentile of 10,000 deterministic
+non-parametric bootstrap resamples of the five seed results. It quantifies variation inside
+this simulator, not external population uncertainty.
 
 ## Economic accounting
 
-The minimized cost is the sum of:
+The minimized cost is unrecovered fraud loss + legitimate false-positive cost + manual review
+cost + per-authorization operational cost. Reviews capture a configurable fraction of fraud
+and have lower customer-friction cost than declines. Validation candidates above the maximum
+review rate are rejected.
 
-```text
-unrecovered fraud loss
-+ legitimate-customer false-positive cost
-+ manual-review cost
-+ per-authorization operational cost
-```
+“Estimated fraud prevented” means declined amount carrying a simulator fraud label. It is a
+controlled comparison metric, not forecast or realized saving.
 
-Reviews capture a configurable fraction of fraudulent value and impose both review cost and
-lower legitimate-customer friction. Declines prevent simulated fraud value but charge the
-full false-positive cost on legitimate payments.
+## Latency and HTTP protocol
 
-The reported “estimated fraud prevented” is declined amount with a simulator fraud label.
-It is useful for comparing configurations inside this controlled experiment; it is not a
-forecast or realized saving.
+The seed-7 benchmark calls `FraudDecisionService.authorize` sequentially. It includes
+feature/graph work, both models, champion contributions, response construction, and the
+in-memory benchmark journal; it excludes HTTP/network.
 
-## Interpretation
+The HTTP suite starts a fresh one-worker Uvicorn process and fresh SQLite file per concurrency
+level. After 25 excluded warmups, an async pooled HTTP/1.1 client sends 500 measured requests.
+It includes request parsing/validation, scheduling, temporal/graph mutation, both models,
+explanation, response serialization, and SQLite WAL/full-sync write. Client and server share
+the same host over loopback; TLS, proxy, containers, remote network, failures, and sustained
+soak are excluded.
 
-One seed and one machine do not produce a confidence interval. PR-AUC is primary because the
-positive class is rare; ROC-AUC is reference context. Fixed-FPR recall connects the score to
-a customer-friction budget. Economic results depend directly on stated cost assumptions.
+## Interpretation rules
+
+- PR-AUC is the primary ranking metric; ROC-AUC is reference context.
+- Fixed-FPR recall links fraud capture to customer-friction budget.
+- Brier/ECE test probability behavior but do not validate simulated calibration in production.
+- Cost moves with explicit assumptions and must be reported alongside false positives/reviews.
+- Latency and throughput belong only to the recorded host/protocol/configuration.
+- No benchmark here supports a production scale, SLO, or realized financial claim.

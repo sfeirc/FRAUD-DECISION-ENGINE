@@ -6,50 +6,78 @@
 sequenceDiagram
     participant C as Payment client
     participant A as Authorization API
+    participant J as SQLite journal
     participant F as Temporal state
     participant G as Entity graph
-    participant M as Champion + challenger
-    participant D as Decision engine
-    participant L as Audit log
-    C->>A: payment + trace ID
-    A->>F: read point-in-time features
-    A->>G: read point-in-time graph signals
-    F-->>A: prior-event windows
-    G-->>A: prior connected-entity risk
-    Note over F,G: Current event is inserted only after reads
-    A->>M: identical feature vector
-    M-->>A: champion and shadow scores
-    A->>D: champion fused risk
-    D-->>A: approve / review / decline
-    A->>L: decision, versions, reasons, signals, latency
-    A-->>C: auditable response
+    participant M as Champion + shadow
+    participant D as Decision policy
+    C->>A: payment + transaction/trace IDs
+    A->>J: lookup request hash
+    alt exact retry
+        J-->>A: persisted response
+        A-->>C: identical response
+    else new payment
+        A->>J: validate customer watermark
+        A->>F: read, then insert event
+        A->>G: read, then insert edges
+        F-->>M: temporal feature vector
+        G-->>M: graph signals
+        M-->>A: calibrated champion + shadow risk
+        A->>D: champion risk
+        D-->>A: approve / review / decline
+        A->>J: persist event, explanation, response, watermark
+        A-->>C: auditable response
+    end
 ```
 
-The application intentionally keeps the reference deployment in one process. This makes
-state transitions and benchmarks reproducible without pretending to solve distributed
-ordering. ADR 001 describes what must change for a multi-instance deployment.
+## Components and state
 
-## Components
-
-| Component | Responsibility | State |
+| Component | Responsibility | State / persistence |
 |---|---|---|
-| FastAPI | Validate authorization payloads and expose dashboard/control APIs | None |
-| OnlineFeatureStore | Customer temporal windows and historical aggregates | In memory |
-| FraudGraph | Entity edges, structural features, confirmed-fraud counters | In memory |
-| RiskModel | XGBoost, Isolation Forest, fusion, native TreeSHAP values | Fitted objects |
-| DecisionEngine | Threshold optimization and action selection | Costs + thresholds |
-| Audit log | Traceable response records and dashboard feed | Bounded in memory |
-| Benchmark | Point-in-time replay, metrics, latency, metadata, figures | Files |
+| FastAPI | Validate requests and expose control, audit, graph, health, metrics | Stateless routing |
+| OnlineFeatureStore | Temporal windows and historical aggregates | In memory |
+| FraudGraph | Heterogeneous edges and indexed component aggregates | In memory |
+| RiskModel | XGBoost, Isolation Forest, graph fusion, Platt calibration, explanations | Checked bundle |
+| DecisionEngine | Cost/capacity threshold selection and action | Checked bundle + interactive updates |
+| AuthorizationStore | Idempotency, watermarks, response/audit journal | SQLite WAL/full-sync |
+| Load/quality suites | Raw measurements, metadata, summaries, generated plots | Versioned files |
 
 ## Consistency boundary
 
-`FraudDecisionService.authorize` serializes state mutation with a re-entrant lock. This
-ensures each process has deterministic read-before-write semantics. It also limits local
-concurrency and is explicitly not evidence of distributed correctness or capacity.
+`FraudDecisionService.authorize` serializes lookup, read-before-write feature/graph mutation,
+model inference, decision, and journal save with a re-entrant lock. This gives deterministic
+ordering inside one process and causes the measured concurrency plateau. Health/metrics reads
+are observational and are not a distributed snapshot.
 
-## Feedback path
+The journal survives restart, but temporal/graph state does not. Exact retries remain stable;
+new post-restart decisions begin from empty behavioral state. This is intentionally disclosed
+as a partial durability boundary, not exactly-once processing.
 
-Authorization requests never contain labels. Offline replay queues simulated confirmed fraud
-and releases it into graph statistics only after the configured delay. A real deployment
-would replace that queue with an idempotent chargeback/analyst-outcome stream.
+## Offline and model lifecycle
 
+```mermaid
+flowchart LR
+    S["Seeded simulator"] --> R["Point-in-time replay"]
+    R --> T["Chronological train"]
+    R --> V["Chronological validation"]
+    R --> E["Untouched test"]
+    T --> M["Fit champion/challenger"]
+    V --> C["Fit Platt calibration"]
+    V --> P["Select cost/capacity thresholds"]
+    M --> B["Checksum-verified artifact"]
+    C --> B
+    P --> B
+    B --> API["API startup load"]
+    E --> Q["Held-out quality/economic report"]
+```
+
+Fraud labels are absent from authorization requests. Offline replay releases simulated fraud
+into graph statistics only after the confirmation delay. Promotion is manual: shadow scoring
+is implemented, but no automatic registry approval or rollback is claimed.
+
+## Distributed successor boundary
+
+A multi-instance design must replace the process lock with partitioned event ordering, store
+temporal/graph state durably, atomically couple input offset/state/decision, recover from
+checkpoints, bound graph memory, handle late-event correction, and preserve the point-in-time
+contract. Merely adding Kafka would not establish those guarantees.

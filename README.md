@@ -4,10 +4,11 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 
-Aegis makes auditable approve/review/decline payment decisions by fusing temporal,
-XGBoost, anomaly, and entity-graph risk under explicit business costs.
+Aegis makes auditable approve/review/decline payment decisions by combining point-in-time
+behavior, supervised and anomaly models, entity-graph risk, calibrated probabilities, and
+explicit fraud/customer/review costs.
 
-## Demo: a fraud ring emerges while traffic is live
+## Demo: watch a coordinated ring emerge
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -15,101 +16,125 @@ make demo
 # or: docker compose up, then open http://localhost:8000/dashboard
 ```
 
-The deterministic demo sends ordinary payments through the authorization service, injects
-a coordinated ring sharing a device and IP, exports its graph, explains each decision, and
-raises false-positive costs to re-optimize both decision thresholds. In the checked run,
-mean risk moved from `0.09659` for normal traffic to `0.77738` for the ring; review/decline
-thresholds moved from `0.284/0.572` to `0.572/0.716`. These are simulator observations,
-not estimates of live fraud performance.
+The finite demo first authorizes 90 ordinary payments, then injects 18 fraud-ring payments
+that reuse a device and IP. In the checked run, mean score moved from `0.05296` to `0.57144`;
+16 ring payments were declined and configured simulated prevented value was `€2,041.97`.
+Raising false-positive costs moved review/decline thresholds from `0.116/0.212` to
+`0.476/0.500`. These are deterministic simulator observations, not live fraud estimates.
 
-The dashboard shows the authorization stream, champion and shadow scores, explanations,
-latency, the review queue, graph ring, and interactive cost controls.
+The live console streams decisions, explanations, champion/shadow scores, the connected fraud
+ring, durable review counts, artifact provenance, latency, and interactive cost/capacity
+policy controls.
+
+![Aegis dashboard after coordinated-ring injection](docs/assets/dashboard.jpg)
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    P["Payment event"] --> I["FastAPI ingestion"]
-    I --> F["Point-in-time temporal features"]
+    P["Payment + idempotency key"] --> I["FastAPI ingestion"]
+    I --> J["SQLite authorization journal"]
+    I --> F["Point-in-time temporal state"]
     I --> G["Incremental entity graph"]
-    F --> X["XGBoost champion"]
+    F --> X["XGBoost"]
     F --> A["Isolation Forest"]
-    G --> R["Graph risk signals"]
-    X --> U["Risk fusion"]
+    G --> R["Graph signals"]
+    X --> U["Calibrated risk fusion"]
     A --> U
     R --> U
-    U --> D["Cost-optimized decision engine"]
+    U --> D["Cost + review-capacity policy"]
     D --> O["Approve / Review / Decline"]
-    D --> L["Explanation + audit log"]
-    U -.-> S["Shadow challenger"]
+    D --> E["Explanation + durable audit"]
+    U -. shadow .-> S["Challenger"]
 ```
 
-The offline replay uses the same feature and graph transition code as online inference.
-The current event is scored before it mutates either state store. Simulated fraud labels
-enter graph statistics only after a configurable confirmation delay.
+The current payment is scored before it mutates temporal or graph state. Offline replay calls
+the same transitions. Simulated fraud feedback enters graph statistics only after a delay.
+Exact transaction retries return the journaled response; conflicting reuse and events beyond
+the five-minute lateness policy return HTTP 409.
 
-## Measured reference results
+## Measured results
 
-Reference: commit `3686297`, seed 7, 2,225 simulated payments, chronological split of
-1,446 train / 334 validation / 445 test rows on Windows 11, Python 3.12.13, an 8-logical-CPU
-Intel64 host. Thresholds were optimized on validation data and evaluated once on test data.
+### Held-out seed-7 result
 
-| Held-out metric | Champion | Shadow challenger |
+Commit `234151e`, 2,225 simulated payments, chronological 1,446/334/445
+train/validation/test split, Windows 11, Python 3.12.13. Models fit on train; Platt
+calibration and cost/capacity thresholds fit on validation; test is reported once.
+
+| Test metric | Champion 3.0 | Shadow 3.1 |
 |---|---:|---:|
 | PR-AUC | 0.7163 | 0.7166 |
-| ROC-AUC | 0.8839 | 0.8869 |
-| Precision | 0.5833 | 0.5870 |
-| Recall | 0.7368 | 0.7105 |
+| ROC-AUC (reference) | 0.8839 | 0.8869 |
+| Precision / recall | 0.5833 / 0.7368 | 0.5833 / 0.7368 |
 | Recall at 1% FPR | 0.5526 | 0.5526 |
-| Fraud amount captured | 84.05% | 84.05% |
-| Estimated total cost | 2,095.35 | 2,233.93 |
+| Brier score | 0.0455 | 0.0449 |
+| Fraud amount captured | 84.60% | 84.60% |
+| False positives / reviews | 20 / 11 | 20 / 12 |
+| Configured estimated cost | 2,238.39 | 2,215.39 |
 
-Champion decisions produced 20 false positives and 19 manual reviews. Sequential warm-model
-in-process latency was p50 `7.33 ms`, p95 `9.35 ms`, and p99 `11.94 ms`; it includes
-features, graph updates, both models, TreeSHAP contributions, and audit serialization, but
-excludes HTTP and network transport. “Fraud captured” and costs use simulated labels and
-configured assumptions; they are not realized financial savings.
+Calibration does not change rank metrics. Relative to the v0.2 seed-7 policy, v0.3 captured
+0.55 percentage points more fraud and reduced reviews from 19 to 11, but estimated cost rose
+6.8% (`2,095.35 → 2,238.39`). The capacity/calibration change is therefore a control-plane
+improvement, not a claimed economic optimization.
 
-![Held-out metrics](benchmarks/results/optimized/quality_metrics.svg)
+![Held-out seed-7 metrics](benchmarks/results/v0.3/quality_metrics.svg)
 
-![Decision latency](benchmarks/results/optimized/latency.svg)
+### Five-seed robustness result
 
-## Measured optimization impact
+Each seed independently regenerates data, fits models, calibrates scores, selects thresholds,
+and evaluates its chronological holdout. The interval is a deterministic 10,000-resample
+bootstrap across five simulator seeds; it describes simulator-seed variation only.
 
-![Measured optimization impact](benchmarks/results/comparison/comparison.svg)
-
-| Same-seed comparison | Baseline | Optimized | Change |
+| Metric | Mean | Bootstrap 95% interval | Seed range |
 |---|---:|---:|---:|
-| Feature replay | 7.981 s | 0.139 s | 57.5× faster |
-| P99 decision latency | 43.92 ms | 11.94 ms | 72.8% lower |
-| PR-AUC | 0.6650 | 0.7163 | +0.0513 |
-| Fraud amount captured | 80.82% | 84.05% | +3.24 pp |
-| Estimated total cost | 2,461.21 | 2,095.35 | 14.9% lower |
-| False positives | 5 | 20 | +15 |
+| PR-AUC | 0.6677 | 0.6501–0.6937 | 0.6419–0.7163 |
+| Recall at 1% FPR | 0.4947 | 0.4632–0.5263 | 0.4474–0.5526 |
+| Fraud amount captured | 84.61% | 82.39%–86.62% | 80.92%–87.48% |
+| False positives | 29.2 | 11.6–48.8 | 2–60 |
+| Review rate | 3.60% | 1.80%–5.17% | 0.45%–5.62% |
+| Brier score | 0.0504 | 0.0477–0.0526 | 0.0455–0.0538 |
 
-The graph speedup replaces repeated full connected-component traversals with an incremental
-union-find index carrying component size and delayed fraud aggregates. Latency also benefits
-from skipping unused TreeSHAP work for the non-decisional challenger. Quality gains come from
-validation-selected model/fusion settings and additional authorization-time features. The
-false-positive increase is the explicit cost-optimized trade-off for higher recall and fraud
-capture under the stated assumptions.
+The 5% validation review constraint exceeded 5% on two unseen seeds. That is measured policy
+drift and evidence that a real system needs runtime queue enforcement and monitoring.
 
-[Optimized raw rows](benchmarks/results/optimized/raw_measurements.csv) ·
-[optimized run metadata](benchmarks/results/optimized/summary.json) ·
-[baseline run](benchmarks/results/reference/summary.json) ·
-[machine-readable comparison](benchmarks/results/comparison/comparison.json) ·
-[benchmark method](docs/benchmarking.md)
+![Five-seed robustness](benchmarks/results/robustness/robustness.svg)
+
+### Full HTTP concurrency result
+
+Commit `d770d2a`, one Uvicorn worker, fresh SQLite database per level, WAL + `FULL` sync,
+25 excluded warmups and 500 measured requests at each concurrency. Client and server ran on
+the same Windows host over loopback. The measurement includes HTTP/JSON, scheduling,
+features, graph mutation, champion/challenger inference, explanation, and journal write.
+
+| Concurrency | Throughput | Client p50 | Client p95 | Client p99 | Errors |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 70.1 req/s | 13.29 ms | 19.45 ms | 23.44 ms | 0/500 |
+| 4 | 91.9 req/s | 41.55 ms | 55.12 ms | 63.25 ms | 0/500 |
+| 8 | 90.9 req/s | 83.75 ms | 102.02 ms | 147.98 ms | 0/500 |
+| 16 | 82.6 req/s | 180.92 ms | 259.01 ms | 295.34 ms | 0/500 |
+
+Throughput saturates near concurrency 4 because the service deliberately serializes state
+mutation. This is a measured limitation, not a scale result or SLO.
+
+![HTTP load result](benchmarks/results/http-load/http_load.svg)
+
+[Seed-7 raw rows](benchmarks/results/v0.3/raw_measurements.csv) ·
+[five-seed raw results](benchmarks/results/robustness/per_seed.csv) ·
+[HTTP raw requests](benchmarks/results/http-load/raw_requests.csv) ·
+[benchmark protocol](docs/benchmarking.md)
 
 ## Why this is difficult
 
-- A useful classifier score is not yet a rational payment decision. Review capacity,
-  customer harm, transaction value, and expected fraud loss change the action boundary.
-- Velocity and graph features are stateful. One out-of-order update or premature label can
-  make an offline result impossible to reproduce online.
-- Fraud is adversarial and rare. ROC-AUC and accuracy can look healthy while the review
-  queue is unusable, so the benchmark includes PR-AUC, fixed-FPR recall, amount capture,
-  false positives, reviews, cost, and tail latency.
-- A challenger must execute the same event path without changing customer outcomes.
+- Stateful velocity and graph features must be identical online and offline without reading
+  the current event or future chargebacks.
+- A useful ranking score is not a business decision. Fraud value, customer harm, review
+  staffing, calibration, and operating cost all change the correct action.
+- Payment retries, out-of-order events, shadow execution, and model provenance are correctness
+  problems, not model-metric details.
+- Fraud is rare and adversarial. Accuracy and even ROC-AUC can look strong while precision,
+  fixed-FPR recall, queue volume, or financial cost are unacceptable.
+- A shared entity graph exposes coordinated infrastructure but creates ordering, hot-key,
+  memory, and partitioning challenges.
 
 ## Quick start
 
@@ -117,99 +142,97 @@ Python 3.12+ is required.
 
 ```bash
 python -m pip install -e ".[dev]"
-make demo       # finite, deterministic CLI scenario and JSON artifact
-make run        # API and dashboard on http://localhost:8000
+make demo                 # finite deterministic scenario + JSON evidence
+make run                  # API/dashboard: http://localhost:8000
+docker compose up --build # API + persistent SQLite volume
 ```
-
-Authorize a payment:
 
 ```bash
 curl -X POST http://localhost:8000/v1/payments/authorize \
   -H "Content-Type: application/json" \
-  -d '{"customer_id":"cus_1","card_id":"card_1","merchant_id":"mer_1","amount":185.20,"currency":"EUR","country":"FR","ip_address":"10.1.2.3","device_id":"dev_9","merchant_category":"electronics","authentication_method":"3ds","authentication_successful":true,"latitude":48.8566,"longitude":2.3522}'
+  -d '{"transaction_id":"order-42","trace_id":"trace-42","customer_id":"cus_1","card_id":"card_1","merchant_id":"mer_1","amount":185.20,"currency":"EUR","country":"FR","ip_address":"10.1.2.3","device_id":"dev_9","merchant_category":"electronics","authentication_method":"3ds","authentication_successful":true,"latitude":48.8566,"longitude":2.3522}'
 ```
 
-Every response includes the decision, fused score, model version, reason codes, native
-XGBoost contribution values, rules, graph signals, timestamp, trace ID, latency, and the
-challenger's non-decisional result. OpenAPI is at `/docs`.
+Responses contain the action, calibrated risk, champion artifact version, native XGBoost
+contributions, rules, graph signals, timestamp, trace ID, in-process latency, and the
+challenger's non-decisional prediction. OpenAPI is at `/docs`; Prometheus text is at
+`/metrics`.
 
 ## Implementation details
 
-- `PaymentSimulator` creates customers, cards, merchants, devices, IPs, countries,
-  currencies, authentication methods, and nine configurable attack families. Benign
-  traffic also includes travel, new devices, shared NAT IPs, and amount spikes.
-- `OnlineFeatureStore` owns one-minute/hour/day counts, spend velocity, amount baseline,
-  geography, device/merchant novelty, authentication context, inter-arrival time, and
-  failed-auth frequency.
-- `FraudGraph` incrementally connects customer ↔ card/device/IP/merchant and derives shared
-  entity counts, component size, degree, merchant concentration, and delayed neighborhood
-  fraud statistics. A disjoint-set index keeps component queries near-constant amortized time;
-  NetworkX remains the investigator-facing visualization graph.
-- `RiskModel` fuses XGBoost, Isolation Forest, and graph risk. Deep learning was excluded:
-  this dataset does not demonstrate that its operational cost would buy material value.
-- `DecisionEngine` grid-searches review and decline thresholds against decomposed costs.
-  Champion and challenger run together, while only champion output reaches decisioning.
+- `PaymentSimulator`: customers, cards, merchants, amounts, currencies, countries, IPs,
+  devices, categories, authentication, realistic benign variation, and nine configurable
+  attack families.
+- `OnlineFeatureStore`: minute/hour/day counts, spend velocity, amount baseline, geography,
+  novelty, failed authentication, inter-arrival time, and read-before-write state.
+- `FraudGraph`: customer ↔ card/device/IP/merchant edges, shared infrastructure, component
+  size, degree, merchant concentration, delayed neighbor fraud, and an indexed union-find
+  path for near-constant amortized component queries.
+- `RiskModel`: XGBoost + Isolation Forest + graph fusion, per-version Platt calibration, and
+  native TreeSHAP-style XGBoost contribution values. No deep learning was added without an
+  experiment showing incremental value.
+- `DecisionEngine`: ordered threshold search over decomposed business cost with a validation
+  review-rate constraint. The model ranks risk; policy owns customer action.
+- `AuthorizationStore`: SQLite WAL/full-sync response journal, exact retry semantics,
+  request-hash conflicts, customer watermarks, and persistent audit queries.
+- `artifacts/models/v0.3.0`: checksum-verified champion, challenger, validation data, policy,
+  ordered feature contract, environment, and source commit. API startup never retrains.
 
-See [architecture](docs/architecture.md), [feature contract](docs/features.md), and
-[fraud scenarios](docs/fraud-scenarios.md).
-
-## Tests and checks
-
-```bash
-make check      # Ruff, mypy, pytest, package build
-make audit      # installed dependency vulnerability audit
-```
-
-Tests cover window boundaries, point-in-time leakage, delayed graph feedback, ring signals,
-cost threshold behavior, deterministic model output, malformed requests, API label
-rejection, shadow output, and a 250 ms local latency guardrail. CI repeats formatting,
-linting, tests with coverage, build, and dependency audit on every push and pull request.
-
-## Reproduce the benchmark
+## Tests and CI
 
 ```bash
-make benchmark
-# custom size/seed/output:
-python -m fraud_engine.benchmark --normal-events 2000 --seed 7 \
-  --output-dir benchmarks/results/my-run
-python -m fraud_engine.compare benchmarks/results/reference/summary.json \
-  benchmarks/results/my-run/summary.json
+make check  # Ruff formatting/lint, strict mypy, pytest + coverage, package build
+make audit  # installed dependency vulnerability audit
 ```
 
-Each run writes raw CSV rows, JSON environment/configuration metadata, and SVG figures.
-Results are deterministic at the data/model level for a fixed dependency set; wall-clock
-latency is expected to vary by host load and hardware.
+The current suite has 35 tests and measured 85.62% line coverage locally. It covers temporal
+boundaries, leakage, delayed labels, graph-index equivalence, threshold/capacity behavior,
+calibration, deterministic models, artifact tampering, idempotent retries, persistence,
+late events, malformed requests, shadow output, and a real-server HTTP benchmark smoke run.
+GitHub Actions repeats formatting, linting, strict typing, tests, build, dependency audit,
+and CodeQL analysis; Dependabot monitors Python and workflow dependencies.
+
+## Reproduce every benchmark
+
+```bash
+make artifacts       # explicit retraining; API startup only loads
+make benchmark       # seed-7 quality + in-process latency
+make robustness      # five independent chronological evaluations
+make load-benchmark  # 4 HTTP concurrency levels, 2,000 measured requests
+```
+
+Every checked benchmark saves commit, hardware, OS, software, configuration, raw CSV, JSON
+summary, and generated SVG. Wall-clock results vary with host load; simulator evidence does
+not predict a live issuer population.
 
 ## Engineering decisions
 
-Architecture Decision Records live in [`docs/adr`](docs/adr):
-
-- [ADR 001: in-process state for a reproducible reference](docs/adr/001-in-process-state.md)
-- [ADR 002: point-in-time event replay](docs/adr/002-point-in-time-features.md)
-- [ADR 003: hybrid models instead of graph deep learning](docs/adr/003-hybrid-risk-model.md)
-- [ADR 004: cost thresholds and shadow challenger](docs/adr/004-cost-decisioning-and-shadow.md)
-- [ADR 005: incremental graph component index](docs/adr/005-incremental-graph-index.md)
-- [ADR 006: shared anomaly scoring](docs/adr/006-shared-anomaly-scoring.md)
+Ten ADRs in [`docs/adr`](docs/adr) record alternatives, benefits, drawbacks, and consequences.
+The newest cover [versioned model artifacts](docs/adr/007-versioned-model-artifacts.md),
+[calibration/review capacity](docs/adr/008-calibration-and-review-capacity.md),
+[durable idempotency](docs/adr/009-durable-idempotency-journal.md), and
+[HTTP load methodology](docs/adr/010-http-load-method.md).
 
 ## Known limitations
 
-This is an executable reference system, not a claim of production readiness. State is
-process-local and is neither durable nor horizontally consistent; there is no Kafka/Flink,
-Redis feature store, model registry, authentication, encryption/key management, review-case
-workflow, drift alerting, or chargeback ingestion. Labels and economics are simulated. The
-benchmark is one seed on one workstation and does not establish live precision, capacity,
-or financial impact. See the full [limitations](docs/limitations.md).
+This is an executable reference, not a production-readiness claim. Temporal/graph state is
+still process-local and is not reconstructed from the journal. SQLite is a single-writer
+choice. There is no Kafka/Flink, distributed feature store, runtime hard review quota,
+chargeback ingestion, PII tokenization, authentication, model approval service, drift alert,
+fairness analysis, case-management workflow, TLS benchmark, or failure-injected multi-node
+test. Synthetic labels and configured costs do not establish real precision or savings.
+See [all limitations](docs/limitations.md).
 
 ## Future work
 
-1. Replace in-memory state with event-log-backed, idempotent stream processing and an online
-   store while retaining the point-in-time contract tests.
-2. Add delayed chargeback ingestion, calibration/drift monitoring, review capacity limits,
-   and champion promotion gates over multiple time windows and seeds.
-3. Benchmark concurrent HTTP traffic, process restarts, skewed hot keys, late events, and
-   graph partitioning before making a scale or SLO claim.
+1. Couple event-log offsets, feature/graph updates, and decisions transactionally; checkpoint
+   and replay state, then test crashes, duplicates, late events, and hot keys.
+2. Add rolling calibration/drift monitors and a hard time-bucketed review budget with
+   segment diagnostics and delayed outcome ingestion.
+3. Add explicit challenger promotion/rollback gates across time windows, seeds, calibration,
+   economic deltas, latency, and fairness—not only ranking metrics.
+4. Repeat sustained remote/TLS/container load tests before changing the single-worker design
+   or making any capacity claim.
 
-The [technical report](docs/technical-report.md) covers modeling and business reasoning;
-[the performance report](docs/performance-report.md) documents profiling and optimization;
-[interview notes](docs/interview-materials.md) contain talking points, CV bullets, a LinkedIn
-description, and 30-second/2-minute pitches.
+The [technical report](docs/technical-report.md), [performance report](docs/performance-report.md),
+and [interview pack](docs/interview-materials.md) explain the design and evidence in depth.

@@ -46,13 +46,29 @@ assumptions, Windows 11 host, Python 3.12.13, and sequential warm in-process lat
 The model and feature set changed intentionally. Raw rows and complete configurations remain
 under `benchmarks/results/reference` and `benchmarks/results/optimized`.
 
+## V0.3 control-plane and full-path measurements
+
+Platt calibration and a validation review-rate constraint did not change seed-7 ranking:
+PR-AUC remained 0.7163. Fraud capture moved from 84.05% to 84.60% and reviews fell from 19 to
+11, but configured estimated cost rose from 2,095.35 to 2,238.39 (6.8%). This is disclosed as
+a policy/control change, not a performance win.
+
+The five-seed rerun exposed material variance: PR-AUC ranged 0.6419–0.7163 and false positives
+ranged 2–60. This is why the repository no longer leads with only the best seed.
+
+The new loopback HTTP suite includes durable SQLite writes. With 500 measured requests per
+level, throughput was 70.1/91.9/90.9/82.6 req/s at concurrency 1/4/8/16 and client p99 was
+23.44/63.25/147.98/295.34 ms, with zero request errors. The plateau after concurrency 4 is
+consistent with serialization around state mutation; no optimization claim is made without
+changing and remeasuring that boundary.
+
 ## Trade-offs and non-claims
 
 False positives increased from 5 to 20 and reviews from 5 to 19 while recall and fraud amount
 capture increased. The lower configured cost follows the documented cost assumptions; a
 business with different customer-friction costs can produce a different optimum.
 
-No throughput, concurrent latency, distributed graph, durability, or production SLO claim is
-made. The component index adds duplicated state that must remain consistent with NetworkX;
-tests cover the reference transitions, but a durable implementation would need transactional
-recovery or reconstruction from the event log.
+The HTTP benchmark establishes only a local baseline, not remote capacity or a production
+SLO. SQLite makes response/audit records durable, while feature and graph state still require
+transactional recovery or reconstruction from an event log. The component index duplicates
+NetworkX state; tests cover reference transitions, not arbitrary crash recovery.
