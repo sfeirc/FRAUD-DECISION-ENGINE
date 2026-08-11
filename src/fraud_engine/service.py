@@ -90,7 +90,10 @@ class FraudDecisionService:
             )
         ).fit(train_rows, train_labels)
         engine = DecisionEngine()
-        scores = [champion.predict(row.features, row.graph_score).risk_score for row in validation]
+        scores = [
+            champion.predict(row.features, row.graph_score, explain=False).risk_score
+            for row in validation
+        ]
         engine.optimize(
             scores,
             [row.label for row in validation],
@@ -105,7 +108,9 @@ class FraudDecisionService:
             graph_snapshot = self.graph.compute(event)
             features = {**temporal, **graph_snapshot.features}
             champion = self.champion.predict(features, graph_snapshot.graph_score)
-            challenger = self.challenger.predict(features, graph_snapshot.graph_score)
+            challenger = self.challenger.predict(
+                features, graph_snapshot.graph_score, explain=False
+            )
             decision = self.engine.decide(champion.risk_score)
             shadow_decision = self.engine.decide(challenger.risk_score)
             codes = reason_codes(features, graph_snapshot.graph_score)
@@ -139,7 +144,7 @@ class FraudDecisionService:
         with self._lock:
             self.engine.assumptions = assumptions
             scores = [
-                self.champion.predict(row.features, row.graph_score).risk_score
+                self.champion.predict(row.features, row.graph_score, explain=False).risk_score
                 for row in self.validation_records
             ]
             old = asdict(self.engine.thresholds)
@@ -158,11 +163,11 @@ class FraudDecisionService:
         labels = [row.label for row in self.validation_records]
         amounts = [row.event.amount for row in self.validation_records]
         champion_scores = [
-            self.champion.predict(row.features, row.graph_score).risk_score
+            self.champion.predict(row.features, row.graph_score, explain=False).risk_score
             for row in self.validation_records
         ]
         challenger_scores = [
-            self.challenger.predict(row.features, row.graph_score).risk_score
+            self.challenger.predict(row.features, row.graph_score, explain=False).risk_score
             for row in self.validation_records
         ]
         return {

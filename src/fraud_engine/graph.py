@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 import networkx as nx
@@ -39,6 +40,10 @@ class FraudGraph:
         self.graph = nx.Graph()
         self.entity_observations: dict[str, int] = defaultdict(int)
         self.entity_confirmed_fraud: dict[str, int] = defaultdict(int)
+        self._parent: dict[str, str] = {}
+        self._component_size: dict[str, int] = {}
+        self._component_observations: dict[str, int] = {}
+        self._component_confirmed_fraud: dict[str, int] = {}
 
     @staticmethod
     def event_nodes(event: PaymentEvent) -> dict[str, str]:
@@ -54,12 +59,7 @@ class FraudGraph:
         nodes = self.event_nodes(event)
         device_customers = self._neighbor_count(nodes["device"], "customer")
         ip_customers = self._neighbor_count(nodes["ip"], "customer")
-        component_nodes: set[str] = set(nodes.values())
-        for node in nodes.values():
-            if node in self.graph:
-                component_nodes.update(nx.node_connected_component(self.graph, node))
-        observed = sum(self.entity_observations[node] for node in component_nodes)
-        confirmed = sum(self.entity_confirmed_fraud[node] for node in component_nodes)
+        component_size, observed, confirmed = self._candidate_component_totals(nodes.values())
         merchant_observed = self.entity_observations[nodes["merchant"]]
         merchant_fraud = self.entity_confirmed_fraud[nodes["merchant"]]
         max_degree = max(
@@ -68,7 +68,7 @@ class FraudGraph:
         features = {
             "shared_device_customers": float(device_customers),
             "shared_ip_customers": float(ip_customers),
-            "suspicious_component_size": float(len(component_nodes)),
+            "suspicious_component_size": float(component_size),
             "merchant_fraud_concentration": merchant_fraud / max(merchant_observed, 1),
             "max_entity_degree": float(max_degree),
             "neighborhood_confirmed_fraud_rate": confirmed / max(observed, 1),
@@ -77,7 +77,7 @@ class FraudGraph:
             1.0,
             0.22 * min(device_customers / 3, 1)
             + 0.22 * min(ip_customers / 3, 1)
-            + 0.18 * min(math.log1p(len(component_nodes)) / math.log(30), 1)
+            + 0.18 * min(math.log1p(component_size) / math.log(30), 1)
             + 0.18 * features["merchant_fraud_concentration"]
             + 0.20 * features["neighborhood_confirmed_fraud_rate"],
         )
@@ -90,23 +90,71 @@ class FraudGraph:
             return 0
         return sum(neighbor.startswith(f"{kind}:") for neighbor in self.graph.neighbors(node))
 
+    def _find(self, node: str) -> str:
+        root = node
+        while self._parent[root] != root:
+            root = self._parent[root]
+        while self._parent[node] != node:
+            parent = self._parent[node]
+            self._parent[node] = root
+            node = parent
+        return root
+
+    def _ensure_component_node(self, node: str) -> None:
+        if node not in self._parent:
+            self._parent[node] = node
+            self._component_size[node] = 1
+            self._component_observations[node] = 0
+            self._component_confirmed_fraud[node] = 0
+
+    def _union(self, left: str, right: str) -> None:
+        left_root, right_root = self._find(left), self._find(right)
+        if left_root == right_root:
+            return
+        if self._component_size[left_root] < self._component_size[right_root]:
+            left_root, right_root = right_root, left_root
+        self._parent[right_root] = left_root
+        self._component_size[left_root] += self._component_size.pop(right_root)
+        self._component_observations[left_root] += self._component_observations.pop(right_root)
+        self._component_confirmed_fraud[left_root] += self._component_confirmed_fraud.pop(
+            right_root
+        )
+
+    def _candidate_component_totals(self, nodes: Iterable[str]) -> tuple[int, int, int]:
+        roots: set[str] = set()
+        unseen = 0
+        for node in nodes:
+            if node in self._parent:
+                roots.add(self._find(node))
+            else:
+                unseen += 1
+        return (
+            unseen + sum(self._component_size[root] for root in roots),
+            sum(self._component_observations[root] for root in roots),
+            sum(self._component_confirmed_fraud[root] for root in roots),
+        )
+
     def update(self, event: PaymentEvent) -> None:
         nodes = self.event_nodes(event)
         for kind, node in nodes.items():
             self.graph.add_node(node, kind=kind, identifier=node.split(":", 1)[1])
+            self._ensure_component_node(node)
             self.entity_observations[node] += 1
+            self._component_observations[self._find(node)] += 1
         customer = nodes["customer"]
         for kind in ("card", "device", "ip", "merchant"):
             edge = self.graph.get_edge_data(customer, nodes[kind], default={})
             self.graph.add_edge(
                 customer, nodes[kind], observations=int(edge.get("observations", 0)) + 1
             )
+            self._union(customer, nodes[kind])
 
     def confirm_fraud(self, event: PaymentEvent) -> None:
         for node in self.event_nodes(event).values():
             self.entity_confirmed_fraud[node] += 1
             if node in self.graph:
                 self.graph.nodes[node]["confirmed_fraud"] = self.entity_confirmed_fraud[node]
+                self._component_confirmed_fraud[self._find(node)] += 1
 
     def suspicious_subgraph(self, minimum_customers: int = 3) -> dict[str, list[dict[str, object]]]:
         suspicious: set[str] = set()

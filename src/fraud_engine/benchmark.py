@@ -144,7 +144,8 @@ def run_benchmark(
         [row.features for row in train], [row.label for row in train]
     )
     validation_scores = [
-        champion.predict(row.features, row.graph_score).risk_score for row in validation
+        champion.predict(row.features, row.graph_score, explain=False).risk_score
+        for row in validation
     ]
     engine = DecisionEngine()
     engine.optimize(
@@ -152,9 +153,11 @@ def run_benchmark(
         [row.label for row in validation],
         [row.event.amount for row in validation],
     )
-    champion_scores = [champion.predict(row.features, row.graph_score).risk_score for row in test]
+    champion_scores = [
+        champion.predict(row.features, row.graph_score, explain=False).risk_score for row in test
+    ]
     challenger_scores = [
-        challenger.predict(row.features, row.graph_score).risk_score for row in test
+        challenger.predict(row.features, row.graph_score, explain=False).risk_score for row in test
     ]
     labels = [row.label for row in test]
     amounts = [row.event.amount for row in test]

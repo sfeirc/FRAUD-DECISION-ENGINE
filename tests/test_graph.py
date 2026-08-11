@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+import networkx as nx
+
 from fraud_engine.domain import PaymentEvent
 from fraud_engine.graph import FraudGraph
 
@@ -38,3 +40,26 @@ def test_shared_entity_ring_is_exported() -> None:
     kinds = {node["kind"] for node in ring["nodes"]}
     assert "device" in kinds
     assert "customer" in kinds
+
+
+def test_component_index_matches_networkx_before_update() -> None:
+    graph = FraudGraph()
+    graph.compute(event("one"))
+    graph.compute(event("two", 1))
+    candidate = event("three", 2)
+    snapshot = graph.compute(candidate, update=False)
+    candidate_nodes = set(graph.event_nodes(candidate).values())
+    expected_nodes = set(candidate_nodes)
+    for node in candidate_nodes:
+        if node in graph.graph:
+            expected_nodes.update(nx.node_connected_component(graph.graph, node))
+    assert snapshot.features["suspicious_component_size"] == len(expected_nodes)
+
+
+def test_confirmed_fraud_aggregates_across_merged_components() -> None:
+    graph = FraudGraph()
+    fraudulent = event("one")
+    graph.compute(fraudulent)
+    graph.confirm_fraud(fraudulent)
+    snapshot = graph.compute(event("two", 1), update=False)
+    assert snapshot.features["neighborhood_confirmed_fraud_rate"] > 0

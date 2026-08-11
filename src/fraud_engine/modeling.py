@@ -72,7 +72,9 @@ class RiskModel:
         ).fit(legitimate)
         return self
 
-    def predict(self, features: dict[str, float], graph_score: float) -> ScoredPayment:
+    def predict(
+        self, features: dict[str, float], graph_score: float, *, explain: bool = True
+    ) -> ScoredPayment:
         if self.supervised is None or self.anomaly is None:
             raise RuntimeError("model is not fitted")
         matrix = self._matrix([features])
@@ -84,19 +86,22 @@ class RiskModel:
             + self.config.anomaly_weight * anomaly_score
             + self.config.graph_weight * graph_score
         )
-        booster = self.supervised.get_booster()
-        contributions = booster.predict(xgb.DMatrix(matrix), pred_contribs=True)[0]
-        ranked_pairs = sorted(
-            (
-                (name, round(float(value), 5))
-                for name, value in zip(FEATURE_NAMES, contributions[:-1], strict=True)
-            ),
-            key=lambda item: abs(item[1]),
-            reverse=True,
-        )[:5]
-        ranked: list[dict[str, float | str]] = [
-            {"feature": name, "contribution": contribution} for name, contribution in ranked_pairs
-        ]
+        ranked: list[dict[str, float | str]] = []
+        if explain:
+            booster = self.supervised.get_booster()
+            contributions = booster.predict(xgb.DMatrix(matrix), pred_contribs=True)[0]
+            ranked_pairs = sorted(
+                (
+                    (name, round(float(value), 5))
+                    for name, value in zip(FEATURE_NAMES, contributions[:-1], strict=True)
+                ),
+                key=lambda item: abs(item[1]),
+                reverse=True,
+            )[:5]
+            ranked = [
+                {"feature": name, "contribution": contribution}
+                for name, contribution in ranked_pairs
+            ]
         return ScoredPayment(
             supervised_score=supervised_score,
             anomaly_score=anomaly_score,
