@@ -10,7 +10,7 @@ format:
 
 lint:
 	$(PYTHON) -m ruff check .
-	$(PYTHON) -m mypy src
+	$(PYTHON) -m mypy -p fraud_engine
 
 test:
 	$(PYTHON) -m pytest --cov=fraud_engine --cov-report=term-missing
@@ -31,4 +31,3 @@ benchmark:
 	$(PYTHON) -m fraud_engine.benchmark
 
 check: lint test build
-

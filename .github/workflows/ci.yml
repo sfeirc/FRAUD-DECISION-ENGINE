@@ -24,7 +24,7 @@ jobs:
       - name: Linting
         run: python -m ruff check .
       - name: Type checking
-        run: python -m mypy src
+        run: python -m mypy -p fraud_engine
       - name: Tests
         run: python -m pytest --cov=fraud_engine --cov-report=term-missing --cov-fail-under=75
       - name: Build
