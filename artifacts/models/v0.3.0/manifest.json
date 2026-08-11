@@ -1,11 +1,11 @@
 {
   "artifact_schema_version": 1,
   "engine_version": "0.3.0",
-  "created_at_utc": "2026-08-11T11:38:24.494312+00:00",
-  "source_commit": "20c659496e641849232b916e89e10b25c049b110",
+  "created_at_utc": "2026-08-11T11:41:56.758701+00:00",
+  "source_commit": "234151eaa177f082a4b274592321ef9e51705eee",
   "bundle": {
     "filename": "bundle.joblib",
-    "sha256": "a9b2f5a5176e5e7fe11cb09ab2e483a7b346eedc709ced7a42a4a61a03c3f8f3"
+    "sha256": "ccbbb388c6b2eb85dfe4cd8e1201dbcc4fb9b2c46f59f05db6ee13847850e398"
   },
   "feature_contract": {
     "ordered_names": [
@@ -45,7 +45,7 @@
   },
   "models": {
     "champion": {
-      "version": "champion-2.0",
+      "version": "champion-3.0",
       "n_estimators": 120,
       "max_depth": 4,
       "learning_rate": 0.05,
@@ -56,7 +56,7 @@
       "random_state": 17
     },
     "challenger": {
-      "version": "challenger-2.1",
+      "version": "challenger-3.1",
       "n_estimators": 120,
       "max_depth": 4,
       "learning_rate": 0.05,
@@ -74,11 +74,12 @@
       "false_positive_review_cost": 8.0,
       "manual_review_cost": 4.0,
       "operational_cost": 0.05,
-      "review_fraud_capture_rate": 0.8
+      "review_fraud_capture_rate": 0.8,
+      "max_review_rate": 0.05
     },
     "thresholds": {
-      "review": 0.28400000000000003,
-      "decline": 0.5720000000000001
+      "review": 0.116,
+      "decline": 0.212
     }
   },
   "environment": {

@@ -1,0 +1,170 @@
+{
+  "timestamp_utc": "2026-08-11T11:42:07.015254+00:00",
+  "commit_hash": "234151eaa177f082a4b274592321ef9e51705eee",
+  "hardware": {
+    "processor": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+    "machine": "AMD64",
+    "logical_cpu_count": 8
+  },
+  "operating_system": {
+    "system": "Windows",
+    "release": "11",
+    "version": "10.0.26200"
+  },
+  "software": {
+    "python": "3.12.13",
+    "fraud-decision-engine": "0.2.0",
+    "numpy": "2.3.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.4.0",
+    "networkx": "3.6.1"
+  },
+  "configuration": {
+    "seeds": [
+      7,
+      19,
+      31,
+      43,
+      59
+    ],
+    "normal_events_per_seed": 2000,
+    "chronological_split": {
+      "train": 0.65,
+      "validation": 0.15,
+      "test": 0.2
+    },
+    "calibration": "Platt scaling fitted on each chronological validation partition",
+    "threshold_selection": "cost minimization on validation with maximum 5% review rate",
+    "uncertainty": "10,000 deterministic non-parametric bootstrap resamples across seeds; interval describes seed-mean variation within this simulator"
+  },
+  "per_seed": [
+    {
+      "seed": 7,
+      "test_rows": 445,
+      "test_fraud_rows": 38,
+      "review_threshold": 0.116,
+      "decline_threshold": 0.212,
+      "pr_auc": 0.7163425064603621,
+      "recall_at_fixed_fpr": 0.5526315789473685,
+      "fraud_capture_rate": 0.8460428703831516,
+      "false_positives": 20.0,
+      "review_rate": 0.024719101123595506,
+      "brier_score": 0.045502272050012185,
+      "total_estimated_business_cost": 2238.392
+    },
+    {
+      "seed": 19,
+      "test_rows": 445,
+      "test_fraud_rows": 38,
+      "review_threshold": 0.09200000000000001,
+      "decline_threshold": 0.116,
+      "pr_auc": 0.6609391732488412,
+      "recall_at_fixed_fpr": 0.47368421052631576,
+      "fraud_capture_rate": 0.874797811680902,
+      "false_positives": 60.0,
+      "review_rate": 0.051685393258426963,
+      "brier_score": 0.05125899513862734,
+      "total_estimated_business_cost": 2935.0780000000004
+    },
+    {
+      "seed": 31,
+      "test_rows": 445,
+      "test_fraud_rows": 38,
+      "review_threshold": 0.28400000000000003,
+      "decline_threshold": 0.47600000000000003,
+      "pr_auc": 0.6637787756801059,
+      "recall_at_fixed_fpr": 0.5263157894736842,
+      "fraud_capture_rate": 0.8091796716126134,
+      "false_positives": 17.0,
+      "review_rate": 0.04269662921348315,
+      "brier_score": 0.0505006789874044,
+      "total_estimated_business_cost": 2309.768
+    },
+    {
+      "seed": 43,
+      "test_rows": 445,
+      "test_fraud_rows": 38,
+      "review_threshold": 0.35600000000000004,
+      "decline_threshold": 0.404,
+      "pr_auc": 0.6419243749183066,
+      "recall_at_fixed_fpr": 0.4473684210526316,
+      "fraud_capture_rate": 0.8326777312460002,
+      "false_positives": 2.0,
+      "review_rate": 0.0044943820224719105,
+      "brier_score": 0.05380080208910037,
+      "total_estimated_business_cost": 2362.7900000000004
+    },
+    {
+      "seed": 59,
+      "test_rows": 445,
+      "test_fraud_rows": 38,
+      "review_threshold": 0.09200000000000001,
+      "decline_threshold": 0.164,
+      "pr_auc": 0.6556335498513801,
+      "recall_at_fixed_fpr": 0.47368421052631576,
+      "fraud_capture_rate": 0.8677800422770335,
+      "false_positives": 47.0,
+      "review_rate": 0.056179775280898875,
+      "brier_score": 0.050754579706269363,
+      "total_estimated_business_cost": 2475.554
+    }
+  ],
+  "aggregates": {
+    "pr_auc": {
+      "mean": 0.6677236760317993,
+      "sample_standard_deviation": 0.02844801169695884,
+      "bootstrap_95_ci_lower": 0.6500982147367733,
+      "bootstrap_95_ci_upper": 0.6936879689825144,
+      "minimum": 0.6419243749183066,
+      "maximum": 0.7163425064603621
+    },
+    "recall_at_fixed_fpr": {
+      "mean": 0.4947368421052632,
+      "sample_standard_deviation": 0.043241254539881556,
+      "bootstrap_95_ci_lower": 0.4631578947368421,
+      "bootstrap_95_ci_upper": 0.5263157894736843,
+      "minimum": 0.4473684210526316,
+      "maximum": 0.5526315789473685
+    },
+    "fraud_capture_rate": {
+      "mean": 0.8460956254399401,
+      "sample_standard_deviation": 0.026631089647500262,
+      "bootstrap_95_ci_lower": 0.8239249511208288,
+      "bootstrap_95_ci_upper": 0.8662397156598045,
+      "minimum": 0.8091796716126134,
+      "maximum": 0.874797811680902
+    },
+    "false_positives": {
+      "mean": 29.2,
+      "sample_standard_deviation": 23.65797962633327,
+      "bootstrap_95_ci_lower": 11.6,
+      "bootstrap_95_ci_upper": 48.8,
+      "minimum": 2.0,
+      "maximum": 60.0
+    },
+    "review_rate": {
+      "mean": 0.03595505617977528,
+      "sample_standard_deviation": 0.02131872579888795,
+      "bootstrap_95_ci_lower": 0.01797752808988764,
+      "bootstrap_95_ci_upper": 0.05168539325842696,
+      "minimum": 0.0044943820224719105,
+      "maximum": 0.056179775280898875
+    },
+    "brier_score": {
+      "mean": 0.05036346559428273,
+      "sample_standard_deviation": 0.003017459849861467,
+      "bootstrap_95_ci_lower": 0.04765329805521366,
+      "bootstrap_95_ci_upper": 0.052582313135967965,
+      "minimum": 0.045502272050012185,
+      "maximum": 0.05380080208910037
+    },
+    "total_estimated_business_cost": {
+      "mean": 2464.3164,
+      "sample_standard_deviation": 277.0277152394686,
+      "bootstrap_95_ci_lower": 2291.822,
+      "bootstrap_95_ci_upper": 2706.1628000000005,
+      "minimum": 2238.392,
+      "maximum": 2935.0780000000004
+    }
+  }
+}
