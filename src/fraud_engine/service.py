@@ -76,24 +76,32 @@ class FraudDecisionService:
         train, validation, _ = chronological_split(records)
         train_rows = [record.features for record in train]
         train_labels = [record.label for record in train]
-        champion = RiskModel(ModelConfig(version="champion-1.0", n_estimators=70, max_depth=3)).fit(
-            train_rows, train_labels
-        )
+        champion = RiskModel(
+            ModelConfig(
+                version="champion-2.0",
+                n_estimators=120,
+                max_depth=4,
+                learning_rate=0.05,
+                supervised_weight=0.85,
+                anomaly_weight=0.10,
+                graph_weight=0.05,
+            )
+        ).fit(train_rows, train_labels)
         challenger = RiskModel(
             ModelConfig(
-                version="challenger-1.1",
-                n_estimators=110,
+                version="challenger-2.1",
+                n_estimators=120,
                 max_depth=4,
-                supervised_weight=0.78,
-                anomaly_weight=0.10,
-                graph_weight=0.12,
+                learning_rate=0.05,
+                supervised_weight=0.90,
+                anomaly_weight=0.05,
+                graph_weight=0.05,
             )
         ).fit(train_rows, train_labels)
         engine = DecisionEngine()
-        scores = [
-            champion.predict(row.features, row.graph_score, explain=False).risk_score
-            for row in validation
-        ]
+        scores = champion.predict_risk_many(
+            [row.features for row in validation], [row.graph_score for row in validation]
+        )
         engine.optimize(
             scores,
             [row.label for row in validation],
@@ -143,10 +151,10 @@ class FraudDecisionService:
     def update_costs(self, assumptions: CostAssumptions) -> dict[str, object]:
         with self._lock:
             self.engine.assumptions = assumptions
-            scores = [
-                self.champion.predict(row.features, row.graph_score, explain=False).risk_score
-                for row in self.validation_records
-            ]
+            scores = self.champion.predict_risk_many(
+                [row.features for row in self.validation_records],
+                [row.graph_score for row in self.validation_records],
+            )
             old = asdict(self.engine.thresholds)
             new = self.engine.optimize(
                 scores,
@@ -162,14 +170,10 @@ class FraudDecisionService:
     def shadow_comparison(self) -> dict[str, object]:
         labels = [row.label for row in self.validation_records]
         amounts = [row.event.amount for row in self.validation_records]
-        champion_scores = [
-            self.champion.predict(row.features, row.graph_score, explain=False).risk_score
-            for row in self.validation_records
-        ]
-        challenger_scores = [
-            self.challenger.predict(row.features, row.graph_score, explain=False).risk_score
-            for row in self.validation_records
-        ]
+        rows = [row.features for row in self.validation_records]
+        graph_scores = [row.graph_score for row in self.validation_records]
+        champion_scores = self.champion.predict_risk_many(rows, graph_scores)
+        challenger_scores = self.challenger.predict_risk_many(rows, graph_scores)
         return {
             self.champion.config.version: classification_and_business_metrics(
                 champion_scores, labels, amounts, self.engine

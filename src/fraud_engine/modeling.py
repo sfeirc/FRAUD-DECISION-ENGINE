@@ -110,6 +110,26 @@ class RiskModel:
             contributions=ranked,
         )
 
+    def predict_risk_many(
+        self, rows: list[dict[str, float]], graph_scores: list[float]
+    ) -> list[float]:
+        if self.supervised is None or self.anomaly is None:
+            raise RuntimeError("model is not fitted")
+        if len(rows) != len(graph_scores):
+            raise ValueError("rows and graph_scores must have equal length")
+        if not rows:
+            return []
+        matrix = self._matrix(rows)
+        supervised_scores = self.supervised.predict_proba(matrix)[:, 1]
+        raw_anomaly = -self.anomaly.decision_function(matrix)
+        anomaly_scores = 1 / (1 + np.exp(-8 * raw_anomaly))
+        risks = (
+            self.config.supervised_weight * supervised_scores
+            + self.config.anomaly_weight * anomaly_scores
+            + self.config.graph_weight * np.asarray(graph_scores)
+        )
+        return [float(value) for value in np.clip(risks, 0, 1)]
+
     @staticmethod
     def _matrix(rows: list[dict[str, float]]) -> np.ndarray:
         return np.asarray(

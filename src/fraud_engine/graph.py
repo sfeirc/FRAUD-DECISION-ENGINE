@@ -16,6 +16,9 @@ GRAPH_FEATURE_NAMES = (
     "merchant_fraud_concentration",
     "max_entity_degree",
     "neighborhood_confirmed_fraud_rate",
+    "merchant_customer_count",
+    "device_observations",
+    "ip_observations",
 )
 
 
@@ -72,6 +75,9 @@ class FraudGraph:
             "merchant_fraud_concentration": merchant_fraud / max(merchant_observed, 1),
             "max_entity_degree": float(max_degree),
             "neighborhood_confirmed_fraud_rate": confirmed / max(observed, 1),
+            "merchant_customer_count": float(self._neighbor_count(nodes["merchant"], "customer")),
+            "device_observations": float(self.entity_observations[nodes["device"]]),
+            "ip_observations": float(self.entity_observations[nodes["ip"]]),
         }
         graph_score = min(
             1.0,

@@ -19,6 +19,11 @@ ONLINE_FEATURE_NAMES = (
     "is_new_device",
     "is_new_merchant",
     "failed_auth_count_1h",
+    "authentication_failed",
+    "is_card_not_present",
+    "is_high_risk_merchant_category",
+    "seconds_since_last_transaction",
+    "customer_history_count",
 )
 
 
@@ -90,6 +95,19 @@ class OnlineFeatureStore:
             "is_new_device": float(event.device_id not in state.devices),
             "is_new_merchant": float(event.merchant_id not in state.merchants),
             "failed_auth_count_1h": float(sum(not row[2] for row in in_hour)),
+            "authentication_failed": float(not event.authentication_successful),
+            "is_card_not_present": float(
+                event.authentication_method.value in {"card_not_present", "3ds"}
+            ),
+            "is_high_risk_merchant_category": float(
+                event.merchant_category in {"gaming", "luxury", "travel"}
+            ),
+            "seconds_since_last_transaction": (
+                min((event.event_time - state.last_event_time).total_seconds(), 86_400)
+                if state.last_event_time
+                else 86_400.0
+            ),
+            "customer_history_count": float(state.total_count),
         }
         if update:
             state.transactions.append(

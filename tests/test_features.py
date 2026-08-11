@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from fraud_engine.domain import PaymentEvent
+from fraud_engine.domain import AuthenticationMethod, PaymentEvent
 from fraud_engine.features import OnlineFeatureStore
 
 
@@ -43,6 +43,22 @@ def test_window_boundaries_and_new_device() -> None:
     assert result["tx_count_1h"] == 0
     assert result["tx_count_1d"] == 1
     assert result["is_new_device"] == 1
+
+
+def test_current_authentication_and_interarrival_features_are_available() -> None:
+    store = OnlineFeatureStore()
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    store.compute(payment(start))
+    failed = payment(start + timedelta(seconds=15)).model_copy(
+        update={
+            "authentication_successful": False,
+            "authentication_method": AuthenticationMethod.CARD_NOT_PRESENT,
+        }
+    )
+    result = store.compute(failed)
+    assert result["authentication_failed"] == 1
+    assert result["is_card_not_present"] == 1
+    assert result["seconds_since_last_transaction"] == 15
 
 
 def test_label_does_not_change_features() -> None:

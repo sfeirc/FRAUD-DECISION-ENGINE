@@ -1,3 +1,4 @@
+from pytest import approx
 from sklearn.metrics import average_precision_score
 
 from fraud_engine.dataset import build_point_in_time_dataset, chronological_split
@@ -20,3 +21,7 @@ def test_model_fit_predict_is_reproducible() -> None:
     assert first_scores == second_scores
     all_scores = [first.predict(row.features, row.graph_score).risk_score for row in test]
     assert average_precision_score([row.label for row in test], all_scores) >= 0.45
+    batch_scores = first.predict_risk_many(
+        [row.features for row in test], [row.graph_score for row in test]
+    )
+    assert batch_scores == approx(all_scores)

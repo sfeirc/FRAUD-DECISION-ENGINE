@@ -128,14 +128,23 @@ def run_benchmark(
     records = build_point_in_time_dataset(events)
     feature_seconds = time.perf_counter() - feature_started
     train, validation, test = chronological_split(records)
-    champion_config = ModelConfig(version="champion-1.0", n_estimators=70, max_depth=3)
-    challenger_config = ModelConfig(
-        version="challenger-1.1",
-        n_estimators=110,
+    champion_config = ModelConfig(
+        version="champion-2.0",
+        n_estimators=120,
         max_depth=4,
-        supervised_weight=0.78,
+        learning_rate=0.05,
+        supervised_weight=0.85,
         anomaly_weight=0.10,
-        graph_weight=0.12,
+        graph_weight=0.05,
+    )
+    challenger_config = ModelConfig(
+        version="challenger-2.1",
+        n_estimators=120,
+        max_depth=4,
+        learning_rate=0.05,
+        supervised_weight=0.90,
+        anomaly_weight=0.05,
+        graph_weight=0.05,
     )
     champion = RiskModel(champion_config).fit(
         [row.features for row in train], [row.label for row in train]
@@ -143,22 +152,19 @@ def run_benchmark(
     challenger = RiskModel(challenger_config).fit(
         [row.features for row in train], [row.label for row in train]
     )
-    validation_scores = [
-        champion.predict(row.features, row.graph_score, explain=False).risk_score
-        for row in validation
-    ]
+    validation_scores = champion.predict_risk_many(
+        [row.features for row in validation], [row.graph_score for row in validation]
+    )
     engine = DecisionEngine()
     engine.optimize(
         validation_scores,
         [row.label for row in validation],
         [row.event.amount for row in validation],
     )
-    champion_scores = [
-        champion.predict(row.features, row.graph_score, explain=False).risk_score for row in test
-    ]
-    challenger_scores = [
-        challenger.predict(row.features, row.graph_score, explain=False).risk_score for row in test
-    ]
+    test_rows = [row.features for row in test]
+    test_graph_scores = [row.graph_score for row in test]
+    champion_scores = champion.predict_risk_many(test_rows, test_graph_scores)
+    challenger_scores = challenger.predict_risk_many(test_rows, test_graph_scores)
     labels = [row.label for row in test]
     amounts = [row.event.amount for row in test]
     champion_metrics = classification_and_business_metrics(champion_scores, labels, amounts, engine)
