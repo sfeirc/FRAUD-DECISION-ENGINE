@@ -8,6 +8,10 @@ Aegis makes auditable approve/review/decline payment decisions by combining poin
 behavior, supervised and anomaly models, entity-graph risk, calibrated probabilities, and
 explicit fraud/customer/review costs.
 
+## Why this matters across industries
+
+Auditable, cost-aware decisioning that combines supervised models, anomaly detection, and entity-graph risk is core to payments/banking fraud teams, but the same architecture — calibrated probabilities plus an explicit cost model rather than a raw score threshold, and a decision that can be explained after the fact — is exactly what any regulated or high-stakes automated-decision system needs: insurance claims triage, industrial safety-incident flagging, or a consulting engagement building defensible decision automation for a client. The entity-graph ring-detection angle also generalizes directly to any anomaly-detection problem where the interesting signal is in how entities relate to each other, not just their individual features.
+
 ## Demo: watch a coordinated ring emerge
 
 ```bash
